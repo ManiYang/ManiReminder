@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<root>
+<situation-binding><![CDATA[
+<spec>
+  <situation-binding> $sit, ... </situation-binding>
+</spec>]]>
+</situation-binding>
+
+
+<time-range-binding><![CDATA[
+<spec>
+  <time-range-binding> all time </time-range-binding>
+
+  <time-range-binding>
+    daily [final $date]; $hr:$m-$h:$m, $h:$m-$h:$m, ...
+  </time-range-binding>
+
+  <time-range-binding>
+    $date[-$date], $date[-$date], ...
+    [repeat every $repeat-method [final $date]];
+    $h:$m-$h:$m, $h:$m-$h:$m, ...
+  </time-range-binding>
+</spec>
+
+$date :  $YYYY/$M/$D[($ddd)]
+$repeat-method : day, $N days, week, $N weeks,
+                 month by $month-method,
+                 $N months by $month-method,
+                 year, $N years
+$month-method : dayNo, dayRevNo, weekNo, weekRevNo]]>
+</time-range-binding>
+
+
+<g-event-duration-binding><![CDATA[
+<spec>
+  <g-event-duration-binding>
+    <g-event> $g-event </g-event>
+    <duration> $NhNm </duration>
+  </g-event-duration-binding>
+  ...
+</spec>
+
+$g-event : start of situation $sit, end of situation $sit,
+           event $event
+$NhNm : ${N}h, ${N}m, ${N}h${N}m]]>
+</g-event-duration-binding>
+
+
+<time-trigger><![CDATA[
+<spec>
+  <time-trigger>
+    daily [final $date]; $h:$m, $h:$m, ...
+  </time-trigger>
+  <time-trigger>
+    $date[-$date], $date[-$date], ...
+    [repeat every $repeat-method [final $date]];
+    $h:$m, $h:$m, ...
+  </time-trigger>
+</spec>
+
+$date :  $YYYY/$M/$D[($ddd)]
+$repeat-method : day, $N days, week, $N weeks,
+                 month by $month-method,
+                 $N months by $month-method,
+                 year, $N years
+$month-method : dayNo, dayRevNo, weekNo, weekRevNo]]>
+</time-trigger>
+
+
+<g-event-trigger><![CDATA[
+<spec>
+  <g-event-trigger>
+    $g-event[; $time-sequence][; until $g-event-ending]
+  </g-event-trigger>
+  ...
+</spec>
+
+$g-event : start of situation $sit, end of situation $sit,
+           event $event
+
+$time-sequence :
+   [$NhNm-start]                   --> single time
+   [$NhNm-start, $NhNm-step]       --> infinite times
+   [$NhNm-start, $NhNm-step, $NhNm-until] --> finite
+   [$NhNm-start, $NhNm-step, $N-times]    --> general
+$N-times :  -1    --> infinite
+           >=1    --> finite times]]>
+</g-event-trigger>
+
+
+<time-range-filter><![CDATA[
+<spec>
+  <time-range-filter> all time </time-range-filter>
+
+  <time-range-filter>
+    daily [final $date]; $h:$m-$h:$m, $h:$m-$h:$m, ...
+  </time-range-filter>
+
+  <time-range-filter>
+    $date[-$date], $date[-$date], ...
+    [repeat every $repeat-method [final $date]];
+    $h:$m-$h:$m, $h:$m-$h:$m, ...
+  </time-range-filter>
+</spec>
+
+$repeat-method : day, $N days, week, $N weeks,
+                 month by $month-method,
+                 $N months by $month-method,
+                 year, $N years
+$month-method : dayNo, dayRevNo, weekNo, weekRevNo
+$date :  $YYYY/$M/$D[($ddd)]]]>
+</time-range-filter>
+
+
+<date-setting><![CDATA[
+<spec>
+  <date-setting>
+    <due-dates> daily [final $date] </due-dates>
+    <due-dates>
+      $date[-$date], $date[-$date], ...
+      [repeat every $repeat-method [final $date]]
+    </due-dates>
+    [<precaution> -${N}d </precaution>]
+  </date-setting>
+</spec>
+
+$repeat-method : day, $N days, week, $N weeks,
+                 month by $month-method,
+                 $N months by $month-method,
+                 year, $N years
+$month-method : dayNo, dayRevNo, weekNo, weekRevNo
+$date :  $YYYY/$M/$D[($ddd)]]]>
+</date-setting>
+
+</root>

@@ -1,0 +1,21 @@
+<RCC>
+    <qresource prefix="/files">
+        <file>data_path.txt</file>
+        <file>spec_setting_format.xml</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file>icons/16/check.png</file>
+        <file>icons/16/cross.png</file>
+        <file>icons/16/half-check.png</file>
+        <file>icons/16/pause.png</file>
+        <file>icons/16/proceed.png</file>
+        <file>icons/alarm-clock.png</file>
+        <file>icons/list-add.18.png</file>
+        <file>icons/list-remove.18.png</file>
+    </qresource>
+    <qresource prefix="/sounds">
+        <file>sounds/ding.wav</file>
+        <file>sounds/gong.wav</file>
+        <file>sounds/pop.wav</file>
+    </qresource>
+</RCC>

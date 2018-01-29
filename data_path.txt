@@ -1,0 +1,3 @@
+# data directory (in one line)
+/home/mani/Documents/my_reminders/data/
+

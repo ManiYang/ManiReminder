@@ -1,0 +1,13 @@
+next:
+ * modify & add reminder
+ * complete clUI_Board::reminder_updated()
+
+
+ * records
+ * continuing from last session
+ * clRemSpec_DateFilter
+
+future:
+ * postpone triggered reminders
+ * on system time change
+
