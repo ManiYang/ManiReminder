@@ -94,7 +94,7 @@ void clUI_DayPlan::set_date(const QDate &date)
     {
         // add the unscheduled ones
         if(! mDayPlanningStatus.contains(id)) //not included => unscheduled
-            mDayPlanningStatus.insert(id, clDataElem_ScheduleStatus());
+            mDayPlanningStatus.insert(id, clDataElem_RemDayStatus());
     }
 
     // remove `mDayPlanningStatus[id]` if reminder `id` is not involved (this can happen when
@@ -137,10 +137,10 @@ void clUI_DayPlan::build_table()
         const int id = mInvolvedReminderIDs.at(i);
 
         Q_ASSERT(mDayPlanningStatus.contains(id));
-        clDataElem_ScheduleStatus SS = mDayPlanningStatus[id];
+        clDataElem_RemDayStatus SS = mDayPlanningStatus[id];
         switch(SS.get_status())
         {
-        case clDataElem_ScheduleStatus::Unscheduled :
+        case clDataElem_RemDayStatus::Unscheduled :
             rem_ids << id;
             due_day_counts << mDayCountsToDue.at(i);
             sort_keys << "a0";
@@ -148,7 +148,7 @@ void clUI_DayPlan::build_table()
             schedule_Nos << -1;
             break;
 
-        case clDataElem_ScheduleStatus::Scheduled :
+        case clDataElem_RemDayStatus::Scheduled :
         {
             QList<std::pair<clUtil_HrMinRange,bool> > times = SS.get_scheduled_times();
             for(int j=0; j<times.size(); j++)
@@ -171,7 +171,7 @@ void clUI_DayPlan::build_table()
             break;
         }
 
-        case clDataElem_ScheduleStatus::Postponed :
+        case clDataElem_RemDayStatus::Postponed :
         {
             QDate d = SS.get_date_postponed_to();
             rem_ids << id;
@@ -182,7 +182,7 @@ void clUI_DayPlan::build_table()
             break;
         }
 
-        case clDataElem_ScheduleStatus::Skipped :
+        case clDataElem_RemDayStatus::Skipped :
             rem_ids << id;
             due_day_counts << mDayCountsToDue.at(i);
             sort_keys << "z1";
@@ -311,33 +311,33 @@ void clUI_DayPlan::on_tableWidget_reminder_titles_customContextMenuRequested(con
 
     // get scheduling status of the reminder --> `status0`
     Q_ASSERT(mDayPlanningStatus.contains(rem_id));
-    clDataElem_ScheduleStatus status0 = mDayPlanningStatus[rem_id];
+    clDataElem_RemDayStatus status0 = mDayPlanningStatus[rem_id];
 
     //
     switch(status0.get_status())
     {
-    case clDataElem_ScheduleStatus::Unscheduled :
+    case clDataElem_RemDayStatus::Unscheduled :
         mAction_Schedule->setText("schedule");
         mAction_Postpone->setEnabled(days_to_due == 0);
         mAction_Skip->setEnabled(true);
         mAction_Cancel->setEnabled(false);
         break;
 
-    case clDataElem_ScheduleStatus::Scheduled :
+    case clDataElem_RemDayStatus::Scheduled :
         mAction_Schedule->setText("edit schedule");
         mAction_Postpone->setEnabled(false);
         mAction_Skip->setEnabled(false);
         mAction_Cancel->setEnabled(true);
         break;
 
-    case clDataElem_ScheduleStatus::Postponed :
+    case clDataElem_RemDayStatus::Postponed :
         mAction_Schedule->setText("schedule on today");
         mAction_Postpone->setEnabled(false);
         mAction_Skip->setEnabled(true);
         mAction_Cancel->setEnabled(true);
         break;
 
-    case clDataElem_ScheduleStatus::Skipped :
+    case clDataElem_RemDayStatus::Skipped :
         mAction_Schedule->setText("schedule");
         mAction_Postpone->setEnabled(days_to_due == 0);
         mAction_Skip->setEnabled(false);
@@ -394,7 +394,7 @@ void clUI_DayPlan::on_tableWidget_reminder_titles_customContextMenuRequested(con
     }
     else if(action_triggered == mAction_Cancel)
     {
-        if(status0.get_status() == clDataElem_ScheduleStatus::Scheduled)
+        if(status0.get_status() == clDataElem_RemDayStatus::Scheduled)
         {
             Q_ASSERT(schedule_No >= 0);
             status0.remove_ith_schedule(schedule_No);

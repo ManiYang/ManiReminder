@@ -35,7 +35,6 @@ SOURCES += \
     DataElem_ButtonSet.cpp \
     DataElem_DatePattern.cpp \
     DataElem_GEvent.cpp \
-    DataElem_ScheduleStatus.cpp \
     DataElem_TimeCollection.cpp \
     DataElem_TimeRangeCollection.cpp \
     DataElem_TimeSequence.cpp \
@@ -79,7 +78,8 @@ SOURCES += \
     UI_Dialog_SpecInputHelper.cpp \
     UI_Dialog_SpecElementInsert.cpp \
     UI_Dialog_CalendarDatePicker.cpp \
-    UI_Board_ButtonSetsView.cpp
+    UI_Board_ButtonSetsView.cpp \
+    DataElem_DayStatus.cpp
 
 HEADERS += \
         UI_MainWindow.h \
@@ -90,7 +90,6 @@ HEADERS += \
     DataElem_ButtonSet.h \
     DataElem_DatePattern.h \
     DataElem_GEvent.h \
-    DataElem_ScheduleStatus.h \
     DataElem_TimeCollection.h \
     DataElem_TimeRangeCollection.h \
     DataElem_TimeSequence.h \
@@ -133,7 +132,8 @@ HEADERS += \
     UI_Dialog_SpecInputHelper.h \
     UI_Dialog_SpecElementInsert.h \
     UI_Dialog_CalendarDatePicker.h \
-    UI_Board_ButtonSetsView.h
+    UI_Board_ButtonSetsView.h \
+    DataElem_DayStatus.h
 
 FORMS += \
         UI_MainWindow.ui \

@@ -28,9 +28,9 @@ private slots:
     void MainWindow_to_create_new_reminder(const QString &title);
 
     void MainWindow_to_get_day_planning_status(const QDate &date,
-                                               QMap<int,clDataElem_ScheduleStatus> *status);
+                                               QMap<int,clDataElem_RemDayStatus> *status);
     void MainWindow_day_planning_status_modified(const QDate &date,
-                                              const QMap<int,clDataElem_ScheduleStatus> &status);
+                                              const QMap<int,clDataElem_RemDayStatus> &status);
 
 private:
     // data //

@@ -40,9 +40,9 @@ signals:
     void to_create_new_reminder(const QString &title);
 
     void to_get_day_planning_status(const QDate &date,
-                                    QMap<int,clDataElem_ScheduleStatus> *status);
+                                    QMap<int,clDataElem_RemDayStatus> *status);
     void day_planning_status_modified(const QDate &date,
-                                      const QMap<int,clDataElem_ScheduleStatus> &status);
+                                      const QMap<int,clDataElem_RemDayStatus> &status);
 
 //----------------------
 
@@ -50,6 +50,8 @@ private slots:
     void on_actionQuit_triggered();
     void on_actionNew_Reminder_triggered();
     void on_actionScheduled_Actions_triggered();
+
+    void to_show_reminder_in_tab_all_reminders(int id);
 
 private:
     Ui::clUI_MainWindow *ui;

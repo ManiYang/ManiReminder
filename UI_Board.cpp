@@ -30,8 +30,8 @@ clUI_Board::clUI_Board(const QMap<int, const clReminder *> *p_reminders,
                                          ->setSectionResizeMode(QHeaderView::ResizeToContents);
 
     // `mContexMenu_for_SelectedSituations`
-    mContexMenu_for_SelectedSituations = new QMenu(this);
-    mAction_EndSituation = mContexMenu_for_SelectedSituations->addAction("End Situation");
+    mContextMenu_for_SelectedSituations = new QMenu(this);
+    mAction_EndSituation = mContextMenu_for_SelectedSituations->addAction("End Situation");
 
     // `mTimer`
     mTimer.setSingleShot(true);
@@ -46,6 +46,13 @@ clUI_Board::clUI_Board(const QMap<int, const clReminder *> *p_reminders,
             this, SLOT(On_RemList_current_reminder_alarm_state_changed(int,clUI_Board_RemList::enAlarmState)));
 
     ui->splitter->insertWidget(1, mRemList);
+
+    //
+    mAction_GoToAllReminders = new QAction("Show in \"All Reminders\"", this);
+    mRemList->setContextMenuPolicy(Qt::ActionsContextMenu);
+    mRemList->addAction(mAction_GoToAllReminders);
+    connect(mAction_GoToAllReminders, SIGNAL(triggered(bool)),
+            this, SLOT(go_to_tab_all_reminders()));
 
     // `mReminderButtons`
     mButtonSetsView = new clUI_Board_ButtonSetsView(ui->horizontalLayout_RemButtons);
@@ -301,6 +308,14 @@ void clUI_Board::On_RemList_current_reminder_alarm_state_changed(
     update_alarm_button(reminder, new_alarm_state);
 }
 
+void clUI_Board::go_to_tab_all_reminders()
+{
+    int id = mRemList->get_current_reminder_id();
+    if(id < 0)
+        return;
+    emit to_show_reminder_in_tab_all_reminders(id);
+}
+
 void clUI_Board::update_alarm_button(const clReminder *reminder,
                          clUI_Board_RemList::enAlarmState alarm_state)
 {
@@ -486,7 +501,7 @@ void clUI_Board::on_listWidget_selected_situations_customContextMenuRequested(co
 
     //
     QPoint p = ui->listWidget_selected_situations->mapToGlobal(pos);
-    QAction *action_selected = mContexMenu_for_SelectedSituations->exec(p);
+    QAction *action_selected = mContextMenu_for_SelectedSituations->exec(p);
     if(action_selected == mAction_EndSituation)
     {
         clDataElem_GEvent gevent(clDataElem_GEvent::EndOfSituation, sit);

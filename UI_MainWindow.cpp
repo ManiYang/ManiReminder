@@ -34,15 +34,17 @@ clUI_MainWindow::clUI_MainWindow(const QMap<int, const clReminder*> *p_reminders
             this,      SIGNAL(to_modify_reminder(int,int,const clReminder*)));
     connect(mUI_Board, SIGNAL(to_add_reminder_record(int,QDateTime,QString)),
             this,      SIGNAL(to_add_reminder_record(int,QDateTime,QString)));
+    connect(mUI_Board,SIGNAL(to_show_reminder_in_tab_all_reminders(int)),
+            this, SLOT(to_show_reminder_in_tab_all_reminders(int)));
 
     //
     mUI_DayPlan = new clUI_DayPlan(pReminders, ui->tab_day_plan);
     ui->tab_day_plan->layout()->addWidget(mUI_DayPlan);
 
-    connect(mUI_DayPlan, SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_ScheduleStatus>*)),
-            this,        SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_ScheduleStatus>*)));
-    connect(mUI_DayPlan, SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_ScheduleStatus>)),
-            this,        SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_ScheduleStatus>)));
+    connect(mUI_DayPlan, SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)),
+            this,        SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)));
+    connect(mUI_DayPlan, SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)),
+            this,        SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)));
 
     //
     mUI_AllReminders = new clUI_AllReminders(pReminders, pSituations, pEvents,
@@ -135,4 +137,10 @@ void clUI_MainWindow::on_actionNew_Reminder_triggered()
         QString title = dialog.textValue().simplified();
         emit to_create_new_reminder(title);
     }
+}
+
+void clUI_MainWindow::to_show_reminder_in_tab_all_reminders(int id)
+{
+    mUI_AllReminders->set_current_reminder(id);
+    ui->tabWidget->setCurrentIndex(2);
 }

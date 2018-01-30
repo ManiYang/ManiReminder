@@ -198,6 +198,12 @@ void clUI_AllReminders::set_records_table(const QMultiMap<QDateTime, QString> &r
                       QStringList() << "time" << "log text");
 }
 
+void clUI_AllReminders::set_current_reminder(const int id)
+{
+    Q_ASSERT(mReminderID_to_Item.contains(id));
+    ui->listWidget_reminders->setCurrentItem(mReminderID_to_Item[id]);
+}
+
 int clUI_AllReminders::get_current_reminder_id() const
 //Return -1 if no reminder is selected.
 {

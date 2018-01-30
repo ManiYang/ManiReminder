@@ -21,10 +21,10 @@ clControl::clControl(QObject *parent)
     connect(uMainWindow,   SIGNAL(to_create_new_reminder(QString)),
             this, SLOT(MainWindow_to_create_new_reminder(QString)));
 
-    connect(uMainWindow,   SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_ScheduleStatus>*)),
-            this, SLOT(MainWindow_to_get_day_planning_status(QDate,QMap<int,clDataElem_ScheduleStatus>*)));
-    connect(uMainWindow,   SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_ScheduleStatus>)),
-            this, SLOT(MainWindow_day_planning_status_modified(QDate,QMap<int,clDataElem_ScheduleStatus>)));
+    connect(uMainWindow,   SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)),
+            this, SLOT(MainWindow_to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)));
+    connect(uMainWindow,   SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)),
+            this, SLOT(MainWindow_day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)));
 
     //
     uAlarmClockService = new clAlarmClockService(this);
@@ -212,13 +212,13 @@ void clControl::MainWindow_to_create_new_reminder(const QString &title)
 }
 
 void clControl::MainWindow_to_get_day_planning_status(const QDate &date,
-                                                   QMap<int,clDataElem_ScheduleStatus> *status)
+                                                   QMap<int,clDataElem_RemDayStatus> *status)
 {
     *status = uFileReadWrite.read_day_planning_status(date);
 }
 
 void clControl::MainWindow_day_planning_status_modified(const QDate &date,
-                                              const QMap<int,clDataElem_ScheduleStatus> &status)
+                                              const QMap<int,clDataElem_RemDayStatus> &status)
 {
     uFileReadWrite.save_day_planning_status(date, status);
     uMainWindow->statusBar()->showMessage("File written.", 5000);

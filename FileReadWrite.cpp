@@ -211,7 +211,7 @@ QMultiMap<QDateTime,clGEvent> clFileReadWrite::read_gevent_history()
     return history;
 }
 
-QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
+QMap<int,clDataElem_RemDayStatus> clFileReadWrite::read_day_planning_status(
                                                                             const QDate &date)
 //Return empty map if not found or there's error.
 {
@@ -219,7 +219,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
     QString fname = mDataDir+"day_plan/"+date.toString("yyyyMMdd.xml");
     QFile F(fname);
     if(! F.open(QIODevice::ReadOnly))
-        return QMap<int,clDataElem_ScheduleStatus>();
+        return QMap<int,clDataElem_RemDayStatus>();
 
     // read as XML
     QDomDocument doc;
@@ -231,7 +231,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
         QString msg = QString("Failed to read \"%1\" as XML.\n\nLine %2: %3")
                      .arg(fname).arg(error_line).arg(error_msg);
         QMessageBox::warning(0, "warning", msg);
-        return QMap<int,clDataElem_ScheduleStatus>();
+        return QMap<int,clDataElem_RemDayStatus>();
     }
 
     // parse
@@ -240,7 +240,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
     //   <schedule-status reminder="rem_id"> scheduling status </schedule-status>
     //   ...
     // </root>
-    QMap<int,clDataElem_ScheduleStatus> status;
+    QMap<int,clDataElem_RemDayStatus> status;
 
     QDomElement root = doc.firstChildElement();
     for(QDomElement e = root.firstChildElement("schedule-status");
@@ -254,7 +254,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
                                   "Attribute \"reminder\" not found in <schedule-status>.")
                          .arg(fname);
             QMessageBox::warning(0, "warning", msg);
-            return QMap<int,clDataElem_ScheduleStatus>();
+            return QMap<int,clDataElem_RemDayStatus>();
         }
 
         QString attr_value = e.attribute("reminder");
@@ -266,7 +266,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
                                   "in <schedule-status>.")
                          .arg(fname, attr_value);
             QMessageBox::warning(0, "warning", msg);
-            return QMap<int,clDataElem_ScheduleStatus>();
+            return QMap<int,clDataElem_RemDayStatus>();
         }
 
         // get scheduling status --> `SS`
@@ -274,7 +274,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
         ch = nsDomUtil::is_an_element_containing_text(e, nullptr, &text);
         Q_ASSERT(ch);
 
-        clDataElem_ScheduleStatus SS;
+        clDataElem_RemDayStatus SS;
         ch = SS.parse_and_set(text);
         if(!ch)
         {
@@ -282,7 +282,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
                                   "Could not parse \"%2\" as scheduling status.")
                          .arg(fname, text);
             QMessageBox::warning(0, "warning", msg);
-            return QMap<int,clDataElem_ScheduleStatus>();
+            return QMap<int,clDataElem_RemDayStatus>();
         }
 
         //
@@ -296,7 +296,7 @@ QMap<int,clDataElem_ScheduleStatus> clFileReadWrite::read_day_planning_status(
 
 bool clFileReadWrite::save_day_planning_status(
                                          const QDate &date,
-                                         const QMap<int,clDataElem_ScheduleStatus> &status)
+                                         const QMap<int,clDataElem_RemDayStatus> &status)
 //Unscheduled items will be ignored.
 //Remove the file if `status` is empty or every `status[]` is "unscheduled".
 {
@@ -309,10 +309,10 @@ bool clFileReadWrite::save_day_planning_status(
     else
     {
         remove_file = true;
-        QList<clDataElem_ScheduleStatus> SSs = status.values();
+        QList<clDataElem_RemDayStatus> SSs = status.values();
         for(auto it=SSs.begin(); it!=SSs.end(); it++)
         {
-            if((*it).get_status() != clDataElem_ScheduleStatus::Unscheduled)
+            if((*it).get_status() != clDataElem_RemDayStatus::Unscheduled)
             {
                 remove_file = false;
                 break;
@@ -346,9 +346,9 @@ bool clFileReadWrite::save_day_planning_status(
     for(auto it=status.constBegin(); it!=status.constEnd(); it++)
     {
         const int &id = it.key();
-        const clDataElem_ScheduleStatus &SS = it.value();
+        const clDataElem_RemDayStatus &SS = it.value();
 
-        if(SS.get_status() == clDataElem_ScheduleStatus::Unscheduled)
+        if(SS.get_status() == clDataElem_RemDayStatus::Unscheduled)
             continue;
 
         //

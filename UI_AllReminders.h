@@ -27,6 +27,7 @@ public:
                               //call this when the data of reminder `id` has updated
     void add_reminder(const int id); //and select it
 
+    void set_current_reminder(const int id);
     int get_current_reminder_id() const; //return -1 if no reminder is selected in the title list
 
 signals:

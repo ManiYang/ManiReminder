@@ -5,7 +5,7 @@
 #include <QDate>
 #include <QMenu>
 #include "Reminder.h"
-#include "DataElem_ScheduleStatus.h"
+#include "DataElem_DayStatus.h"
 #include "FileReadWrite.h"
 
 namespace Ui {
@@ -28,9 +28,9 @@ public slots:
 
 signals:
     void to_get_day_planning_status(const QDate &date,
-                                    QMap<int,clDataElem_ScheduleStatus> *status);
+                                    QMap<int,clDataElem_RemDayStatus> *status);
     void day_planning_status_modified(const QDate &date,
-                                      const QMap<int,clDataElem_ScheduleStatus> &status);
+                                      const QMap<int,clDataElem_RemDayStatus> &status);
 
 //------------------
 
@@ -49,7 +49,7 @@ private:
     const QMap<int, const clReminder*> *pReminders;
 
     //
-    QMap<int,clDataElem_ScheduleStatus> mDayPlanningStatus; //[rem_id], for the selected date
+    QMap<int,clDataElem_RemDayStatus> mDayPlanningStatus; //[rem_id], for the selected date
     QList<int> mInvolvedReminderIDs; //reminders that have date-settings including
                                      //current selected date
     QList<int> mDayCountsToDue; //[i] is for `mInvolvedReminderIDs[i]`

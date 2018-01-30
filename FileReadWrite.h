@@ -8,7 +8,7 @@
 #include <QDomElement>
 #include "Reminder.h"
 #include "DataElem_GEvent.h"
-#include "DataElem_ScheduleStatus.h"
+#include "DataElem_DayStatus.h"
 typedef clDataElem_GEvent clGEvent;
 
 class clFileReadWrite
@@ -33,10 +33,10 @@ public:
     bool save_gevent_history(const QMultiMap<QDateTime, clGEvent> &history);
 
     //
-    QMap<int,clDataElem_ScheduleStatus> read_day_planning_status(const QDate &date);
+    QMap<int,clDataElem_RemDayStatus> read_day_planning_status(const QDate &date);
                                            //Return empty map if not found or there's error.
     bool save_day_planning_status(const QDate &date,
-                                  const QMap<int,clDataElem_ScheduleStatus> &status);
+                                  const QMap<int,clDataElem_RemDayStatus> &status);
          //Unscheduled items will be ignored.
          //Remove the file if `status` is empty or every `status[]` is "unscheduled".
 

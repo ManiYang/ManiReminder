@@ -45,6 +45,8 @@ signals:
     void to_add_reminder_record(int id, const QDateTime &t, const QString &log_text);
 //    void to_MainWindow__reminder_modified(int rem_id);
 
+    void to_show_reminder_in_tab_all_reminders(int id);
+
 //--------------------------
 
 private slots:
@@ -60,6 +62,7 @@ private slots:
     void On_RemList_current_reminder_alarm_state_changed(
                                   int rem_id, clUI_Board_RemList::enAlarmState new_alarm_state);
                                   //not on changes of current reminder in the reminder list
+    void go_to_tab_all_reminders();
 
     // detail view
     void On_user_delay_alarm();
@@ -85,18 +88,13 @@ private:
     QMap<int, QMultiMap<QDateTime, QString> > mRemRecentRecords; //[active_rem_id]
     QMap<int, clAlternateBSInfo*> mAlternateBSInfos; //[active_rem_id]
 
-//    QMap<int, QMap<int,clDataElem_ButtonSet_Alternate> > mAlternateBSs;
-//    QMap<int, QMap<int,int*> > mAlternateBSStates;
-                        //mAlternateBSs[rem_id][BS_No] is the data of `BS_No`th button set,
-                        //which is an alternate button set, of the active reminder `rem_id`.
-                        //mAlternateBSStates[rem_id][BS_No] is the associated state register.
-
     // units //
-    QMenu *mContexMenu_for_SelectedSituations;
+    QMenu *mContextMenu_for_SelectedSituations;
     QAction *mAction_EndSituation;
     QTimer mTimer; //for updating the time display in history
 
     clUI_Board_RemList *mRemList; //the list widget of reminder titles
+    QAction *mAction_GoToAllReminders;
 
     QMenu *mMenu_for_alarm_button;
     QAction *mAction_DelayAlarm;
