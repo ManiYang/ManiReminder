@@ -7,9 +7,12 @@
 
 clUI_MainWindow::clUI_MainWindow(const QMap<int, const clReminder*> *p_reminders,
                                  const QSet<QString> *p_situations,
-                                 const QSet<QString> *p_events, QWidget *parent)
+                                 const QSet<QString> *p_events,
+                                 const clTaskStatesManager *p_TaskStatesManager,
+                                 QWidget *parent)
     : QMainWindow(parent), ui(new Ui::clUI_MainWindow),
-      pReminders(p_reminders), pSituations(p_situations), pEvents(p_events)
+      pReminders(p_reminders), pSituations(p_situations), pEvents(p_events),
+      pTaskStatesManager(p_TaskStatesManager)
 {
     ui->setupUi(this);
 
@@ -35,16 +38,22 @@ clUI_MainWindow::clUI_MainWindow(const QMap<int, const clReminder*> *p_reminders
     connect(mUI_Board, SIGNAL(to_add_reminder_record(int,QDateTime,QString)),
             this,      SIGNAL(to_add_reminder_record(int,QDateTime,QString)));
     connect(mUI_Board,SIGNAL(to_show_reminder_in_tab_all_reminders(int)),
-            this, SLOT(to_show_reminder_in_tab_all_reminders(int)));
+            this,       SLOT(to_show_reminder_in_tab_all_reminders(int)));
 
     //
-    mUI_DayPlan = new clUI_DayPlan(pReminders, ui->tab_day_plan);
+    mUI_DayPlan = new clUI_DayPlan(pReminders, pTaskStatesManager, ui->tab_day_plan);
     ui->tab_day_plan->layout()->addWidget(mUI_DayPlan);
 
-    connect(mUI_DayPlan, SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)),
-            this,        SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)));
-    connect(mUI_DayPlan, SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)),
-            this,        SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)));
+    connect(mUI_DayPlan, SIGNAL(to_update_task_state(clUtil_Task,clDataElem_TaskState)),
+            this,        SIGNAL(to_update_task_state(clUtil_Task,clDataElem_TaskState)));
+    connect(mUI_DayPlan, SIGNAL(to_modify_reminder(int,int,const clReminder*)),
+            this,        SIGNAL(to_modify_reminder(int,int,const clReminder*)));
+    connect(mUI_DayPlan, SIGNAL(to_show_reminder_in_tab_all_reminders(int)),
+            this,          SLOT(to_show_reminder_in_tab_all_reminders(int)));
+    connect(mUI_DayPlan, SIGNAL(get_scheduled_sessions(QDate,QMap<clTask,QList<clTaskDayScheduleSession> >*)),
+            this,        SIGNAL(get_scheduled_sessions(QDate,QMap<clTask,QList<clTaskDayScheduleSession> >*)));
+    connect(mUI_DayPlan, SIGNAL(scheduled_sessions_updated(QDate,const QMap<clTask,QList<clTaskDayScheduleSession> >*)),
+            this,        SIGNAL(scheduled_sessions_updated(QDate,const QMap<clTask,QList<clTaskDayScheduleSession> >*)));
 
     //
     mUI_AllReminders = new clUI_AllReminders(pReminders, pSituations, pEvents,
@@ -100,6 +109,12 @@ void clUI_MainWindow::reminder_becomes_active(int id)
 void clUI_MainWindow::reminder_becomes_inactive(int id)
 {
     mUI_Board->hide_reminder(id);
+}
+
+void clUI_MainWindow::current_date_changed()
+{
+    mUI_Board->current_date_changed();
+    //........
 }
 
 void clUI_MainWindow::on_actionScheduled_Actions_triggered()

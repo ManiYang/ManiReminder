@@ -14,9 +14,13 @@ public:
 
     //
     bool is_empty() const { return mDatePattern.is_empty(); }
+
+    bool includes_date(const QDate &date) const { return mDatePattern.includes(date); }
     QDateTime get_earliest_time() const;
     QList<QDateTime> get_times_within_time_range(const QDateTime &t0, const QDateTime &t1);
                                                  //Get the times of `*this` within (`t0`, `t1`].
+    QList<QTime> get_times() const { return mTimes; }
+
     QString print() const;
 
     bool operator == (const clDataElem_TimeCollection &another) const;

@@ -194,3 +194,8 @@ bool clDataElem_TimeRangeCollection::is_in_HrMinRanges(const int hr, const int m
     return false;
 }
 
+bool clDataElem_TimeRangeCollection::includes_date(const QDate &date) const
+//include a time range in `date`?
+{
+    return mDatePattern.includes(date);
+}

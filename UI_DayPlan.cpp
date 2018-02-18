@@ -7,29 +7,12 @@
 #include "UI_DayPlan_Dialog_Schedule.h"
 #include "UI_Dialog_CalendarDatePicker.h"
 
-clUI_DayPlan::clUI_DayPlan(const QMap<int, const clReminder*> *p_reminders, QWidget *parent)
+clUI_DayPlan::clUI_DayPlan(const QMap<int, const clReminder*> *p_reminders,
+                           const clTaskStatesManager *p_TaskStatesManager, QWidget *parent)
     : QWidget(parent), ui(new Ui::clUI_day_plan),
-      pReminders(p_reminders)
+      pReminders(p_reminders), pTaskStatesManager(p_TaskStatesManager)
 {
     ui->setupUi(this);
-
-    //
-    ui->tableWidget_reminder_titles->setEditTriggers(QTableWidget::NoEditTriggers);
-    ui->tableWidget_reminder_titles->setSelectionBehavior(QTableWidget::SelectRows);
-    ui->tableWidget_reminder_titles->setStyleSheet("Font: 11pt");
-    ui->tableWidget_reminder_titles->verticalHeader()->setVisible(false);
-    ui->tableWidget_reminder_titles->horizontalHeader()
-                                          ->setSectionResizeMode(QHeaderView::ResizeToContents);
-    ui->tableWidget_reminder_titles->verticalHeader()
-                                          ->setSectionResizeMode(QHeaderView::ResizeToContents);
-    ui->tableWidget_reminder_titles->horizontalHeader()->setHighlightSections(false);
-    ui->tableWidget_reminder_titles->setContextMenuPolicy(Qt::CustomContextMenu);
-    ui->tableWidget_reminder_titles->setHorizontalHeaderLabels(
-                                QStringList() << "task" << "days to\ndeadline" << "scheduling");
-
-    //
-    ui->plainTextEdit_reminder_detail->setReadOnly(true);
-    ui->plainTextEdit_reminder_detail->setStyleSheet("Font: 10pt");
 
     //
     ui->dateEdit->setDisplayFormat("yyyy MM/dd ddd");
@@ -38,14 +21,20 @@ clUI_DayPlan::clUI_DayPlan(const QMap<int, const clReminder*> *p_reminders, QWid
 
     connect(ui->dateEdit, SIGNAL(dateChanged(QDate)), this, SLOT(set_date(QDate)));
 
+    // managers for tables
+    mScheduleTableManager = new clUI_DayPlan_ScheduleTable(ui->tableWidget_schedule, this);
+    mUpdateRecTableManager = new clUI_DayPlan_UpdateRecordTable(ui->tableWidget_update_record, this);
+    mTaskTableManager = new clUI_DayPlan_TaskTable(ui->tableWidget_day_plan, this);
+
     //
-    mContextMenu = new QMenu(this);
-    mAction_Schedule = mContextMenu->addAction("schedule");
-    mContextMenu->addSeparator();
-    mAction_Postpone = mContextMenu->addAction("postpone");
-    mAction_Skip = mContextMenu->addAction("skip");
-    mContextMenu->addSeparator();
-    mAction_Cancel = mContextMenu->addAction("cancel/reset");
+    ui->splitter->setStretchFactor(0,1);
+    ui->splitter->setStretchFactor(1,2);
+
+    ui->checkBox_show_update_record->setChecked(false);
+    mUpdateRecTableManager->set_table_visible(false);
+
+    //
+    ui->plainTextEdit_quick_note->installEventFilter(this);
 }
 
 clUI_DayPlan::~clUI_DayPlan()
@@ -67,196 +56,183 @@ void clUI_DayPlan::reminder_updated(int id)
     set_date(date);
 }
 
+
+void clUI_DayPlan::prepare_tasks_data_for_date(const QDate &date,
+                                               QMap<clTask, clTaskState> &tasks,
+                                               QMap<clTask, clTaskState> &other_update_record)
+{
+    const QDate today = QDate::currentDate();
+
+    tasks.clear();
+    other_update_record.clear();
+
+    // get data for `date` from `pTaskStatesManager`
+    QList<clTask> active_tasks; //tasks active on `date`
+    QList<clTaskState> active_tasks_states; //[i]: task states for `mActiveTasks[i]`
+
+    QList<clTask> shifted_tasks; //tasks with date shifted to <= `date` (if `date` is today)
+                                 //or to = `date` (`date` is not today)
+    QList<QDate> shifted_tasks_shifted2dates; //[i]: for `mShiftedTasks[i]`
+
+    QList<clTask> updated_tasks; //tasks with a record of state update on `date`
+    QList<clTaskState> updated_tasks_states; //[i]: for `mUpdatedTasks[i]`
+
+    pTaskStatesManager->date_query(date,
+                                   active_tasks, active_tasks_states,
+                                   (date!=today), shifted_tasks, shifted_tasks_shifted2dates,
+                                   updated_tasks, updated_tasks_states);
+
+    // add active tasks to `tasks[]`
+    for(int i=0; i<active_tasks.size(); i++)
+        tasks.insert(active_tasks.at(i), active_tasks_states.at(i));
+
+    // add overdue tasks to `tasks[]` if `date` is today
+    // (an overdue task is a task with state "Todo" and deadline < today)
+    if(date == today)
+    {
+        QList<clTask> overdue_tasks;
+        overdue_tasks = pTaskStatesManager->get_overdue_tasks();
+
+        for(int i=0; i<overdue_tasks.size(); i++)
+            tasks.insert(overdue_tasks.at(i), clTaskState()); //todo
+    }
+
+    // add to `tasks[]` tasks with date shifted to d1 <= `date` [to d1 = `date`] if `date` is
+    // today [if `date` > today].
+    if(date >= today)
+    {
+        clTaskState state;
+        for(int i=0; i<shifted_tasks.size(); i++)
+        {
+            state.set_state(clTaskState::DateShifted, shifted_tasks_shifted2dates.at(i));
+            tasks.insert(shifted_tasks.at(i), state);
+        }
+    }
+
+    // if `date` is <= today, add to `other_update_record[]` tasks with a record of state
+    // update on `date` that is not included in `tasks[]`
+    if(date <= today)
+    {
+        for(int i=0; i<updated_tasks.size(); i++)
+        {
+            if(! tasks.contains(updated_tasks.at(i)))
+                other_update_record.insert(updated_tasks.at(i), updated_tasks_states.at(i));
+        }
+    }
+}
+
+void clUI_DayPlan::prepare_scheduled_session_data_for_date(const QDate &date,
+                                                           QList<clDayScheduleItem> &sessions)
+//get scheduled task sessions and temporary sessions on `date`
+{
+    // ......
+
+}
+
+void clUI_DayPlan::get_reminders_w_trigger_or_binding_for_date(const QDate &date,
+                                                               QList<clDayScheduleItem> &items)
+//find reminders with triggering times or binding time ranges on `date`
+{
+    items.clear();
+
+    for(auto it=pReminders->cbegin(); it!=pReminders->cend(); it++)
+    {
+        int id = it.key();
+        const clReminder *reminder = it.value();
+
+        QList<QTime> triggering_times = reminder->get_triggering_times_on_date(date);
+        foreach(QTime t, triggering_times)
+        {
+            clDayScheduleItem item;
+            item.set_nontask_w_time_trigger(id, reminder->get_title(), "", t);
+            items << item;
+        }
+
+        QList<clUtil_HrMinRange> binding_time_ranges
+                = reminder->get_binding_hrmin_ranges_on_date(date);
+        foreach(clUtil_HrMinRange t_rng, binding_time_ranges)
+        {
+            clDayScheduleItem item;
+            item.set_nontask_w_time_range_binding(id, reminder->get_title(), "", t_rng);
+            items << item;
+        }
+    }
+}
+
 void clUI_DayPlan::set_date(const QDate &date)
+//update view according to `pTaskStatesManager`
 {
     Q_ASSERT(date.isValid());
 
-    // get all reminders that has date-setting including `date`
-    // --> `mInvolvedReminderIDs[]`, `mDayCountsToDue[]`
-    mInvolvedReminderIDs.clear();
-    mDayCountsToDue.clear();
+    const QDate today = QDate::currentDate();
 
-    for(auto it=pReminders->begin(); it!=pReminders->end(); it++)
+    // prepare data
+    QMap<clTask, clTaskState> tasks;
+    QMap<clTask, clTaskState> other_updated_tasks;
+    prepare_tasks_data_for_date(date, tasks, other_updated_tasks);
+
+    QList<clDayScheduleItem> scheduled_sessions; //task and temp. sessions
+    prepare_scheduled_session_data_for_date(date, scheduled_sessions);
+
+    // find scheduled tasks from `scheduled_sessions[]` --> `scheduled_tasks`
+    QMap<clTask,bool> scheduled_tasks; //the key is not used
+    for(int i=0; i<scheduled_sessions.size(); i++)
     {
-        const clReminder *reminder = it.value();
-        int Ndays_to_due;
-        if(reminder->date_setting_includes(date, &Ndays_to_due))
-        {
-            mInvolvedReminderIDs << reminder->get_id();
-            mDayCountsToDue << Ndays_to_due;
-        }
+        if(scheduled_sessions.at(i).is_task())
+            scheduled_tasks.insert(scheduled_sessions.at(i).get_task(), false);
     }
 
-    // get planning status --> `mDayPlanningStatus`
-    emit to_get_day_planning_status(date, &mDayPlanningStatus);
+    // build table 1 -- tasks
+    mTaskTableManager->clear();
+    mTaskTableManager->set_relative_to_date(date);
 
-    foreach(int id, mInvolvedReminderIDs)
+    for(auto it=tasks.begin(); it!=tasks.end(); it++)
     {
-        // add the unscheduled ones
-        if(! mDayPlanningStatus.contains(id)) //not included => unscheduled
-            mDayPlanningStatus.insert(id, clDataElem_RemDayStatus());
-    }
+        const clTask &task = it.key();
+        const clTaskState &state = it.value();
 
-    // remove `mDayPlanningStatus[id]` if reminder `id` is not involved (this can happen when
-    // the reminder's spec is modified)
-    for(auto it=mDayPlanningStatus.begin(); it!=mDayPlanningStatus.end(); )
-    {
-        if(! mInvolvedReminderIDs.contains(it.key()))
-            it = mDayPlanningStatus.erase(it);
-        else
-            it++;
-    }
-
-    //
-    build_table();
-}
-
-static void print_hrmin_range(const clUtil_HrMinRange &hrmin_rng, QString &start, QString &end)
-{
-    Q_ASSERT(! hrmin_rng.is_empty());
-    start = QString("%1:%2")
-            .arg(hrmin_rng.get_start_hr(), 2,10,QChar('0'))
-            .arg(hrmin_rng.get_start_min(),2,10,QChar('0'));
-    end = QString("%1:%2")
-          .arg(hrmin_rng.get_end_hr(), 2,10,QChar('0'))
-          .arg(hrmin_rng.get_end_min(),2,10,QChar('0'));
-}
-
-void clUI_DayPlan::build_table()
-//Build table according to `mDayPlanningStatus`, 'mInvolvedReminderIDs', and 'mDayCountsToDue'.
-{
-    // determine contents of columns
-    QList<QByteArray> sort_keys;
-    QList<int> rem_ids;
-    QList<int> due_day_counts;
-    QList<QString> str_scheduling_status;
-    QList<int> schedule_Nos;
-
-    for(int i=0; i<mInvolvedReminderIDs.size(); i++)
-    {
-        const int id = mInvolvedReminderIDs.at(i);
-
-        Q_ASSERT(mDayPlanningStatus.contains(id));
-        clDataElem_RemDayStatus SS = mDayPlanningStatus[id];
-        switch(SS.get_status())
-        {
-        case clDataElem_RemDayStatus::Unscheduled :
-            rem_ids << id;
-            due_day_counts << mDayCountsToDue.at(i);
-            sort_keys << "a0";
-            str_scheduling_status << "unscheduled";
-            schedule_Nos << -1;
-            break;
-
-        case clDataElem_RemDayStatus::Scheduled :
-        {
-            QList<std::pair<clUtil_HrMinRange,bool> > times = SS.get_scheduled_times();
-            for(int j=0; j<times.size(); j++)
-            {
-                clUtil_HrMinRange hrmin_rng = std::get<0>(times.at(j));
-                bool b_try = std::get<1>(times.at(j));
-
-                QString str_start, str_end;
-                print_hrmin_range(hrmin_rng, str_start, str_end);
-
-                rem_ids << id;
-                due_day_counts << mDayCountsToDue.at(i);
-                sort_keys << ("t"+str_start).toLatin1();
-                if(b_try)
-                    str_scheduling_status << ("try "+str_start+" - "+str_end);
-                else
-                    str_scheduling_status << (str_start+" - "+str_end);
-                schedule_Nos << j;
-            }
-            break;
-        }
-
-        case clDataElem_RemDayStatus::Postponed :
-        {
-            QDate d = SS.get_date_postponed_to();
-            rem_ids << id;
-            due_day_counts << mDayCountsToDue.at(i);
-            sort_keys << "z0";
-            str_scheduling_status << ("postpone to "+d.toString("yyyy/M/d"));
-            schedule_Nos << -1;
-            break;
-        }
-
-        case clDataElem_RemDayStatus::Skipped :
-            rem_ids << id;
-            due_day_counts << mDayCountsToDue.at(i);
-            sort_keys << "z1";
-            str_scheduling_status << "skip";
-            schedule_Nos << -1;
-            break;
-        }
-    }
-
-    //
-    QList<int> ind;
-    {
-        QMultiMap<QByteArray, int> map;
-        for(int i=0; i<sort_keys.size(); i++)
-            map.insert(sort_keys.at(i), i);
-        ind = map.values();
-    }
-    //(now sort_keys[ind[]] is in ascending order)
-
-    // build table
-    //   column 0: title
-    //   column 1: days to deadline
-    //   column 2: scheduling status
-    Q_ASSERT(ui->tableWidget_reminder_titles->columnCount() == 3);
-
-    ui->tableWidget_reminder_titles->setRowCount(0);
-
-    int Nrows = 0;
-    foreach(int i, ind)
-    {
-        ui->tableWidget_reminder_titles->setRowCount(Nrows+1);
-
-        //
-        const int id = rem_ids.at(i);
+        const int id = task.mRemID;
         Q_ASSERT(pReminders->contains(id));
-        const QString title = (*pReminders)[id]->get_title();
 
-        const int due_day_count = due_day_counts.at(i);
-        const QString str_status = str_scheduling_status.at(i);
-        const int schedule_No = schedule_Nos.at(i);
-
-        // column 0: title
-        {
-            QTableWidgetItem *item = new QTableWidgetItem;
-            item->setData(Qt::DisplayRole, title);
-            item->setData(Qt::UserRole, id);
-            ui->tableWidget_reminder_titles->setItem(Nrows, 0, item);
-        }
-
-        // column 1: days to deadline
-        {
-            QTableWidgetItem *item = new QTableWidgetItem;
-            item->setData(Qt::DisplayRole, due_day_count);
-            item->setData(Qt::TextAlignmentRole, int(Qt::AlignHCenter | Qt::AlignVCenter));
-            if(due_day_count == 0)
-                item->setData(Qt::ForegroundRole, QBrush(QColor(Qt::red)));
-            else if(due_day_count == 1)
-                item->setData(Qt::ForegroundRole, QBrush(QColor("#dd6600")));
-            ui->tableWidget_reminder_titles->setItem(Nrows, 1, item);
-        }
-
-        // column 2: scheduling status
-        {
-            QTableWidgetItem *item = new QTableWidgetItem;
-            item->setData(Qt::DisplayRole, str_status);
-            if(str_status == "unscheduled")
-                item->setData(Qt::ForegroundRole, QBrush(QColor(Qt::darkBlue)));
-            item->setData(Qt::UserRole, schedule_No);
-            ui->tableWidget_reminder_titles->setItem(Nrows, 2, item);
-        }
-
-        //
-        Nrows++;
+        bool scheduled = scheduled_tasks.contains(task);
+        mTaskTableManager->add_task(task, (*pReminders)[id]->get_title(),
+                                    (date==today), state, scheduled);
     }
+
+    // build table 2 -- state update records
+    mUpdateRecTableManager->clear();
+
+    for(auto it=other_updated_tasks.begin(); it!=other_updated_tasks.end(); it++)
+    {
+        const clTask &task = it.key();
+        const clTaskState &state = it.value();
+
+        const int id = task.mRemID;
+        Q_ASSERT(pReminders->contains(id));
+
+        mUpdateRecTableManager->add_task(task, (*pReminders)[id]->get_title(), state);
+    }
+
+    // find reminders with triggering times or binding time ranges on `date`
+    QList<clDayScheduleItem> reminders_w_trigger_or_binding;
+    get_reminders_w_trigger_or_binding_for_date(date, reminders_w_trigger_or_binding);
+
+    // build table 3 -- schedule
+    QList<clDayScheduleItem> day_schedule_items;
+    day_schedule_items << scheduled_sessions;
+    day_schedule_items << reminders_w_trigger_or_binding;
+
+    mScheduleTableManager->clear();
+    mScheduleTableManager->add_schedule_items(day_schedule_items);
+
+    //
+    mTaskTableManager->deselect();
+    mUpdateRecTableManager->deselect();
+    mScheduleTableManager->deselect();
+
+    //
+    ui->plainTextEdit_detail->clear();
+    ui->plainTextEdit_quick_note->clear();
 }
 
 void clUI_DayPlan::on_pushButton_today_clicked()
@@ -265,148 +241,119 @@ void clUI_DayPlan::on_pushButton_today_clicked()
     ui->dateEdit->setDate(today);
 }
 
-void clUI_DayPlan::on_tableWidget_reminder_titles_currentCellChanged(
-                        int currentRow, int currentColumn, int previousRow, int previousColumn)
+void clUI_DayPlan::on_checkBox_show_update_record_toggled(bool checked)
 {
+    mUpdateRecTableManager->set_table_visible(checked);
+}
+/*
+void clUI_DayPlan::on_tableWidget_day_plan_currentCellChanged(
+                       int currentRow, int currentColumn, int previousRow, int previousColumn)
+{
+    Q_UNUSED(previousRow);
     Q_UNUSED(previousColumn);
-    Q_UNUSED(currentColumn);
 
-    if(currentRow == previousRow)
+    if(currentRow < 0 || currentColumn < 0)
         return;
 
-    if(currentRow < 0)
-    {
-        ui->plainTextEdit_reminder_detail->clear();
-        return;
-    }
+    // de-select the other tables
+    mUpdateRecTableManager->deselect();
+    mScheduleTableManager->deselect();
 
-    QTableWidgetItem *item = ui->tableWidget_reminder_titles->item(currentRow, 0);
-    if(item == Q_NULLPTR)
+    // get selected task --> `mCurrentTask`
+    mCurrentTask = table_row_to_task(ui->tableWidget_day_plan, currentRow);
+
+    //
+    highlight_current_task_in_tables();
+
+    //
+    show_reminder_detail_and_quick_note(mCurrentTask.mRemID);
+}*/
+
+/*
+void clUI_DayPlan::on_tableWidget_update_record_currentCellChanged(
+                       int currentRow, int currentColumn, int previousRow, int previousColumn)
+{
+    Q_UNUSED(previousRow);
+    Q_UNUSED(previousColumn);
+
+    if(currentRow < 0 || currentColumn < 0)
         return;
 
-    bool ok;
-    int rem_id = item->data(Qt::UserRole).toInt(&ok);
-    Q_ASSERT(ok);
-    QString detail = (*pReminders)[rem_id]->get_detail();
-    ui->plainTextEdit_reminder_detail->setPlainText(detail);
+    // de-select the other tables
+    ui->tableWidget_day_plan->setCurrentCell(-1, -1);
+    mScheduleTableManager->deselect();
+
+    // get selected task --> `mCurrentTask`
+    mCurrentTask = table_row_to_task(ui->tableWidget_update_record, currentRow);
+
+    //
+    highlight_current_task_in_tables();
+
+    //
+    show_reminder_detail_and_quick_note(mCurrentTask.mRemID);
+}
+*/
+
+void clUI_DayPlan::show_reminder_detail_and_quick_note(const int id)
+{
+    Q_ASSERT(pReminders->contains(id));
+    const clReminder *reminder = (*pReminders)[id];
+
+    ui->plainTextEdit_detail->clear();
+    ui->plainTextEdit_detail->appendHtml(reminder->get_detail());
+
+    ui->plainTextEdit_quick_note->setPlainText(reminder->get_quick_note());
 }
 
-void clUI_DayPlan::on_tableWidget_reminder_titles_customContextMenuRequested(const QPoint &pos)
+bool clUI_DayPlan::eventFilter(QObject *watched, QEvent *event)
 {
-    if(ui->tableWidget_reminder_titles->itemAt(pos) == Q_NULLPTR)
-        return;
+    if(watched == ui->plainTextEdit_quick_note)
+    {
+        if(event->type() == QEvent::FocusOut)
+        {
+            int id = mCurrentTask.mRemID;
+            if(id >= 0)
+            {
+                if(ui->plainTextEdit_quick_note->document()->isModified())
+                {
+                    QString new_quick_note = ui->plainTextEdit_quick_note->toPlainText();
+                    clReminder new_data(-1);
+                    new_data.set_quick_note(new_quick_note);
+                    emit to_modify_reminder(id, clReminder::QuickNote, &new_data);
 
-    // get reminder id
-    int row = ui->tableWidget_reminder_titles->rowAt(pos.y());
-    QTableWidgetItem *item_title = ui->tableWidget_reminder_titles->item(row, 0);
-    int rem_id = item_title->data(Qt::UserRole).toInt();
-
-    // get day count before deadline
-    QTableWidgetItem *item1 = ui->tableWidget_reminder_titles->item(row, 1);
-    int days_to_due = item1->data(Qt::DisplayRole).toString().toInt();
-
-    // get schedule No
-    QTableWidgetItem *item2 = ui->tableWidget_reminder_titles->item(row, 2);
-    int schedule_No = item2->data(Qt::UserRole).toInt();
-
-    // get scheduling status of the reminder --> `status0`
-    Q_ASSERT(mDayPlanningStatus.contains(rem_id));
-    clDataElem_RemDayStatus status0 = mDayPlanningStatus[rem_id];
+                    ui->plainTextEdit_quick_note->document()->setModified(false);
+                }
+            }
+        }
+    }
 
     //
-    switch(status0.get_status())
-    {
-    case clDataElem_RemDayStatus::Unscheduled :
-        mAction_Schedule->setText("schedule");
-        mAction_Postpone->setEnabled(days_to_due == 0);
-        mAction_Skip->setEnabled(true);
-        mAction_Cancel->setEnabled(false);
-        break;
+    return QWidget::eventFilter(watched, event);
+}
 
-    case clDataElem_RemDayStatus::Scheduled :
-        mAction_Schedule->setText("edit schedule");
-        mAction_Postpone->setEnabled(false);
-        mAction_Skip->setEnabled(false);
-        mAction_Cancel->setEnabled(true);
-        break;
+void clUI_DayPlan::on_comboBox_nontask_option_currentIndexChanged(int index)
+{
+    if(index == 0)
+        mScheduleTableManager->show_nontask_reminders(true, true);
+    else if(index == 1)
+        mScheduleTableManager->show_nontask_reminders(true, false);
+    else if(index == 2)
+        mScheduleTableManager->show_nontask_reminders(false, true);
+    else
+        mScheduleTableManager->show_nontask_reminders(false, false);
+}
 
-    case clDataElem_RemDayStatus::Postponed :
-        mAction_Schedule->setText("schedule on today");
-        mAction_Postpone->setEnabled(false);
-        mAction_Skip->setEnabled(true);
-        mAction_Cancel->setEnabled(true);
-        break;
-
-    case clDataElem_RemDayStatus::Skipped :
-        mAction_Schedule->setText("schedule");
-        mAction_Postpone->setEnabled(days_to_due == 0);
-        mAction_Skip->setEnabled(false);
-        mAction_Cancel->setEnabled(true);
-        break;
-    }
-
-    mAction_Skip->setText((days_to_due==0) ? "skip" : "skip for today");
-
-    //
-    QAction *action_triggered
-        = mContextMenu->exec(ui->tableWidget_reminder_titles->viewport()->mapToGlobal(pos));
-    if(action_triggered == Q_NULLPTR)
+void clUI_DayPlan::on_pushButton_add_temp_rem_clicked()
+{
+    clUI_DayPlan_ScheduleDialog dialog;
+    int r = dialog.exec();
+    if(r != QDialog::Accepted)
         return;
 
-    if(action_triggered == mAction_Schedule)
+    QList<clDataElem_DayScheduleItem> new_sessions = dialog.get_sessions();
+    if(! new_sessions.isEmpty())
     {
-        clUI_DayPlan_ScheduleDialog dialog(status0.get_scheduled_times());
-        int r = dialog.exec();
-        if(r == QDialog::Accepted)
-        {
-            auto ranges = dialog.get_hrmin_ranges();
-            if(ranges.isEmpty())
-                mDayPlanningStatus[rem_id].set_unscheduled();
-            else
-                mDayPlanningStatus[rem_id].set_scheduled(ranges);
-        }
+        mScheduleTableManager->add_schedule_items(new_sessions);
+        mScheduleTableManager->highlight_temporary_reminder(new_sessions.at(0).get_title());
     }
-    else if(action_triggered == mAction_Postpone)
-    {
-        QDate date0 = ui->dateEdit->date();
-
-        clUI_Dialog_CalendarDatePicker dialog;
-        dialog.set_label_text("Postpone to which date?");
-        dialog.set_minimum_date(date0.addDays(1));
-        dialog.set_date(date0.addDays(1));
-        int r = dialog.exec();
-        if(r == QDialog::Accepted)
-            mDayPlanningStatus[rem_id].set_postponed(dialog.get_selected_date());
-    }
-    else if(action_triggered == mAction_Skip)
-    {
-        if(days_to_due == 0)
-        {
-            int reply = QMessageBox::warning(this, "confirm",
-                                             "The task is due today. Really skip it?",
-                                             QMessageBox::Yes | QMessageBox::No,
-                                             QMessageBox::No);
-            if(reply == QMessageBox::No)
-                return;
-        }
-
-        mDayPlanningStatus[rem_id].set_skipped();
-    }
-    else if(action_triggered == mAction_Cancel)
-    {
-        if(status0.get_status() == clDataElem_RemDayStatus::Scheduled)
-        {
-            Q_ASSERT(schedule_No >= 0);
-            status0.remove_ith_schedule(schedule_No);
-            mDayPlanningStatus[rem_id] = status0;
-        }
-        else
-            mDayPlanningStatus[rem_id].set_unscheduled();
-    }
-
-    // rebuild table
-    build_table();
-
-    // save changes
-    emit day_planning_status_modified(ui->dateEdit->date(), mDayPlanningStatus);
 }

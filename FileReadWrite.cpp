@@ -66,6 +66,8 @@ clFileReadWrite::clFileReadWrite()
     QDir dir(mDataDir);
     if(! dir.exists())
         exit_on_error(QString("Directory \"%1\" does not exist.").arg(mDataDir));
+    if(! dir.isReadable())
+        exit_on_error(QString("Directory \"%1\" is not readable.").arg(mDataDir));
 }
 
 QList<clReminder *> clFileReadWrite::read_all_reminders()
@@ -211,181 +213,6 @@ QMultiMap<QDateTime,clGEvent> clFileReadWrite::read_gevent_history()
     return history;
 }
 
-QMap<int,clDataElem_RemDayStatus> clFileReadWrite::read_day_planning_status(
-                                                                            const QDate &date)
-//Return empty map if not found or there's error.
-{
-    // open file
-    QString fname = mDataDir+"day_plan/"+date.toString("yyyyMMdd.xml");
-    QFile F(fname);
-    if(! F.open(QIODevice::ReadOnly))
-        return QMap<int,clDataElem_RemDayStatus>();
-
-    // read as XML
-    QDomDocument doc;
-    QString error_msg;
-    int error_line;
-    bool ch = doc.setContent(&F, &error_msg, &error_line);
-    if(!ch)
-    {
-        QString msg = QString("Failed to read \"%1\" as XML.\n\nLine %2: %3")
-                     .arg(fname).arg(error_line).arg(error_msg);
-        QMessageBox::warning(0, "warning", msg);
-        return QMap<int,clDataElem_RemDayStatus>();
-    }
-
-    // parse
-    // <root>
-    //   <schedule-status reminder="rem_id"> scheduling status </schedule-status>
-    //   <schedule-status reminder="rem_id"> scheduling status </schedule-status>
-    //   ...
-    // </root>
-    QMap<int,clDataElem_RemDayStatus> status;
-
-    QDomElement root = doc.firstChildElement();
-    for(QDomElement e = root.firstChildElement("schedule-status");
-        ! e.isNull();
-        e = e.nextSiblingElement("schedule-status"))
-    {
-        // get reminder id --> `id`
-        if(! e.hasAttribute("reminder"))
-        {
-            QString msg = QString("Failed to parse \"%1\".\n\n"
-                                  "Attribute \"reminder\" not found in <schedule-status>.")
-                         .arg(fname);
-            QMessageBox::warning(0, "warning", msg);
-            return QMap<int,clDataElem_RemDayStatus>();
-        }
-
-        QString attr_value = e.attribute("reminder");
-        int id = attr_value.toInt(&ch);
-        if(!ch)
-        {
-            QString msg = QString("Failed to parse \"%1\".\n\n"
-                                  "Unrecognized value \"%2\" of attribute \"reminder\" "
-                                  "in <schedule-status>.")
-                         .arg(fname, attr_value);
-            QMessageBox::warning(0, "warning", msg);
-            return QMap<int,clDataElem_RemDayStatus>();
-        }
-
-        // get scheduling status --> `SS`
-        QString text;
-        ch = nsDomUtil::is_an_element_containing_text(e, nullptr, &text);
-        Q_ASSERT(ch);
-
-        clDataElem_RemDayStatus SS;
-        ch = SS.parse_and_set(text);
-        if(!ch)
-        {
-            QString msg = QString("Failed to parse \"%1\".\n\n"
-                                  "Could not parse \"%2\" as scheduling status.")
-                         .arg(fname, text);
-            QMessageBox::warning(0, "warning", msg);
-            return QMap<int,clDataElem_RemDayStatus>();
-        }
-
-        //
-        status.insert(id, SS);
-    }
-
-    //
-    F.close();
-    return status;
-}
-
-bool clFileReadWrite::save_day_planning_status(
-                                         const QDate &date,
-                                         const QMap<int,clDataElem_RemDayStatus> &status)
-//Unscheduled items will be ignored.
-//Remove the file if `status` is empty or every `status[]` is "unscheduled".
-{
-    const QString fname = mDataDir+"day_plan/"+date.toString("yyyyMMdd.xml");
-
-    //
-    bool remove_file = false;
-    if(status.isEmpty())
-        remove_file = true;
-    else
-    {
-        remove_file = true;
-        QList<clDataElem_RemDayStatus> SSs = status.values();
-        for(auto it=SSs.begin(); it!=SSs.end(); it++)
-        {
-            if((*it).get_status() != clDataElem_RemDayStatus::Unscheduled)
-            {
-                remove_file = false;
-                break;
-            }
-        }
-    }
-
-    if(remove_file)
-    {
-        QFileInfo FI(fname);
-        if(FI.exists())
-        {
-            QFile F(fname);
-            bool ch = F.remove();
-            if(!ch)
-            {
-                QString msg = QString("Could not delete file \"%1\".").arg(fname);
-                QMessageBox::warning(0, "warning", msg);
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // build document
-    QDomDocument doc;
-    QDomElement root = doc.createElement("day-planning-status");
-    doc.appendChild(root);
-
-    for(auto it=status.constBegin(); it!=status.constEnd(); it++)
-    {
-        const int &id = it.key();
-        const clDataElem_RemDayStatus &SS = it.value();
-
-        if(SS.get_status() == clDataElem_RemDayStatus::Unscheduled)
-            continue;
-
-        //
-        QDomElement e = doc.createElement("schedule-status");
-        e.setAttribute("reminder", id);
-
-        QDomText text_node = doc.createTextNode(SS.print());
-        e.appendChild(text_node);
-
-        //
-        root.appendChild(e);
-    }
-
-    // open file
-    QFile F(fname);
-    if(! F.open(QIODevice::WriteOnly))
-    {
-        QString msg = QString("Could not open \"%1\" for writing.").arg(fname);
-        QMessageBox::warning(0, "warning", msg);
-        return false;
-    }
-
-    // write to file
-    QTextStream TS(&F);
-    TS << doc.toString(2);
-
-    //
-    if(F.error() != QFile::NoError)
-    {
-        F.close();
-        return false;
-    }
-
-    F.close();
-    return true;
-}
-
 bool clFileReadWrite::save_reminder(const clReminder &reminder, QString &error_msg)
 {
     // create XML document --> `doc`
@@ -472,4 +299,519 @@ bool clFileReadWrite::save_gevent_history(const QMultiMap<QDateTime, clGEvent> &
     if(!ch)
         QMessageBox::warning(nullptr, "error", error_msg);
     return ch;
+}
+
+bool clFileReadWrite::save_overdue_tasks(const QList<clUtil_Task> &overdue_tasks,
+                                         const QDate &last_traced_day)
+{
+    const QString fname = mDataDir+"overdue_reminders.txt";
+    QFile F(fname);
+    if(! F.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::warning(nullptr, "warning",
+                             QString("Could not open \"%1\" for writing.").arg(fname));
+        return false;
+    }
+    else
+    {
+        QTextStream ts(&F);
+
+        ts << last_traced_day.toString("yyyy/M/d") << '\n';
+
+        for(auto it=overdue_tasks.cbegin(); it!=overdue_tasks.cend(); it++)
+        {
+            ts << (*it).mRemID << ' '
+               << (*it).mDeadline.toString("yyyy/M/d") << '\n';
+        }
+    }
+
+    F.close();
+    return true;
+}
+
+void clFileReadWrite::read_overdue_tasks(QList<clUtil_Task> &overdue_reminders,
+                                         QDate &last_traced_day)
+{
+    const QString fname = mDataDir+"overdue_reminders.txt";
+    QFile F(fname);
+    if(! F.open(QIODevice::ReadOnly))
+        exit_on_error(QString("Could not open \"%1\" for reading.").arg(fname));
+
+    //
+    QString first_line = QString::fromUtf8(F.readLine());
+    last_traced_day = QDate::fromString(first_line.simplified(), "yyyy/M/d");
+    if(! last_traced_day.isValid())
+        exit_on_error(QString("Error in reading \"%1\".\n\n"
+                              "Could not parse the first line \"%2\" at a date.")
+                      .arg(fname, first_line));
+
+    //
+    overdue_reminders.clear();
+#define ON_ERROR exit_on_error(QString("Error in reading \"%1\".\n\n" \
+                                       "Could not parse the line \"%2\".").arg(fname, line))
+    while(! F.atEnd())
+    {
+        QByteArray line_bytes = F.readLine().simplified();
+        if(line_bytes.isEmpty())
+            continue;
+
+        QString line = QString::fromUtf8(line_bytes);
+        QStringList tokens = line.split(' ');
+        if(tokens.size() != 2)
+            ON_ERROR;
+
+        bool ok;
+        int id = tokens.at(0).toInt(&ok);
+        if(!ok)
+            ON_ERROR;
+
+        QDate due_date = QDate::fromString(tokens.at(1).simplified(), "yyyy/M/d");
+        if(! due_date.isValid())
+            ON_ERROR;
+
+        overdue_reminders << clUtil_Task(id, due_date);
+    }
+#undef ON_ERROR
+
+    //
+    F.close();
+}
+void clFileReadWrite::read_rem_deadlines_states_in_history(const int id,
+                                         const QDate &deadline_min, const QDate &deadline_max,
+                                         QMap<QDate,clDataElem_TaskState> &deadline_states)
+//Read the reminder-deadline state history to get the recorded tasks (and their latest states)
+//involving reminder `id` with deadline within [`deadline_min`, `deadline_max`].
+{
+    Q_ASSERT(deadline_min.isValid() && deadline_max.isValid());
+    Q_ASSERT(deadline_min <= deadline_max);
+
+    deadline_states.clear();
+
+    //
+    const QString fname = mDataDir + "task_state_history/"
+                          + QString("%1.txt").arg(id,4,10,QChar('0'));
+    QFile F(fname);
+    if(!F.open(QIODevice::ReadOnly))
+        return;
+
+    //
+    QByteArray line_bytes = F.readLine().simplified();
+    QString line = QString::fromUtf8(line_bytes);
+    QDate deadline;
+#define ON_ERROR exit_on_error(QString("Error in reading \"%1\".\n\nCould not parse \"%2\".") \
+                               .arg(fname, line))
+    while(! line.isEmpty())
+    {
+        QDate d;
+        clDataElem_TaskState state;
+
+        if(line.startsWith('D'))
+        {
+            deadline = QDate::fromString(line.mid(1), "yyyy/M/d");
+            if(! deadline.isValid())
+                ON_ERROR;
+
+            if(deadline > deadline_max)
+                break;
+        }
+        else if(deadline >= deadline_min)
+        {
+            QStringList tokens = line.split(' ');
+            if(tokens.size() != 2)
+                ON_ERROR;
+
+            d = QDate::fromString(tokens.at(0), "yyyy/M/d");
+            if(!d.isValid())
+                ON_ERROR;
+
+            bool ch = state.parse_and_set(tokens.at(1));
+            if(!ch)
+                ON_ERROR;
+        }
+
+        // read next line
+        line_bytes = F.readLine().simplified();
+        line = QString::fromUtf8(line_bytes);
+
+        if(line.startsWith('D') || line.isEmpty())
+        {
+            //next line starts with 'D' or is empty (last line)
+            // => `state` (if set) is the final state
+
+            if(d.isValid()) //(`d` and `state` is set)
+                deadline_states.insert(deadline, state);
+        }
+    }
+#undef ON_ERROR
+
+    //
+    F.close();
+}
+
+
+static int find_first_greater_or_equal(const QList<QDate> dates, const int start_index,
+                                       const QDate &wrt_date)
+//Find first element of `dates[]` that is >= `wrt_date`, starting from index `start_index`.
+//Return the index. If not found, return -1.
+//`start_index` can have any value.
+{
+    if(start_index >= dates.size())
+        return -1;
+
+    int i = start_index;
+    if(i < 0)
+        i = 0;
+    for( ; i<dates.size(); i++)
+    {
+        if(dates.at(i) >= wrt_date)
+            return i;
+    }
+    return -1;
+}
+
+void clFileReadWrite::read_rem_deadline_states(
+                              const int id,
+                              //
+                              const QList<QDate> &query_deadlines, //must be in ascending order
+                              QList<clDataElem_TaskState> &state_of_query_deadlines,
+                              //
+                              const QDate &max_shfited_date,
+                              QList<QDate> &deadlines_w_date_shifted,
+                              QList<QDate> &shifted_dates,
+                              //
+                              const QDate &record_date,
+                              QList<QDate> &deadlines_w_record_on_date,
+                              QList<clDataElem_TaskState> &states_on_date)
+// * `state_of_query_deadlines[i]` will be the latest state of the deadline
+//   `query_deadlines[i]`.
+//
+// * `deadlines_w_date_shifted[]` will be the deadlines with latest state = `DateShifted`
+//   and shifted-date <= `max_shfited_date`. `shifted_dates[j]` will be the shifted date of
+//   `deadlines_w_date_shifted[j]`.
+//
+// * `deadlines_w_record_on_date[]` will be the deadlines with a state update record on
+//   `record_date`. `states[k]` will be the updated state of `deadlines_w_record_on_date[k]`
+//   on that date.
+{
+    state_of_query_deadlines.clear();
+    for(int i=0; i<query_deadlines.size(); i++)
+        state_of_query_deadlines << clDataElem_TaskState();
+
+    deadlines_w_date_shifted.clear();
+    shifted_dates.clear();
+    deadlines_w_record_on_date.clear();
+    states_on_date.clear();
+
+    //
+    const QString fname = mDataDir + "task_state_history/"
+                          + QString("%1.txt").arg(id,4,10,QChar('0'));
+    QFile F(fname);
+    if(!F.open(QIODevice::ReadOnly))
+        return;
+
+    //
+    int query_deadlines_search_from = 0;
+
+    // first line (first deadline)
+    QByteArray line_bytes = F.readLine().simplified();
+    if(line_bytes.isEmpty())
+        return;
+    QString line = QString::fromUtf8(line_bytes);
+    Q_ASSERT(line.startsWith('D'));
+
+    QDate deadline1 = QDate::fromString(line.mid(1), "yyyy/M/d");
+    Q_ASSERT(deadline1.isValid());
+
+    //
+    const QString record_date_str = record_date.toString("yyyy/M/d");
+    QString date_str1, state_str1;
+    while(! line.isEmpty())
+    {
+        if(line.startsWith('D'))
+        {
+            deadline1 = QDate::fromString(line.mid(1), "yyyy/M/d");
+            Q_ASSERT(deadline1.isValid());
+        }
+        else
+        {
+            QStringList tokens = line.split(' ');
+            date_str1 = tokens.at(0);
+            state_str1 = tokens.at(1);
+
+            //
+            if(date_str1 == record_date_str)
+            {
+                deadlines_w_record_on_date << deadline1;
+
+                clDataElem_TaskState state;
+                bool ch = state.parse_and_set(state_str1);
+                Q_ASSERT(ch);
+                states_on_date << state;
+            }
+        }
+
+        // read next line
+        line_bytes = F.readLine().simplified();
+        line = QString::fromUtf8(line_bytes);
+
+        if(line.startsWith('D') || line.isEmpty())
+        {
+            // (now is at the end of a deadline block, `state_str1` is the latest state
+            //  of `deadline1`)
+
+            clDataElem_TaskState state1;
+            bool ch = state1.parse_and_set(state_str1);
+            Q_ASSERT(ch);
+
+            // search `query_deadlines[]` for `deadline1`
+            int pos = find_first_greater_or_equal(query_deadlines,
+                                                  query_deadlines_search_from, deadline1);
+            if(pos == -1)
+                query_deadlines_search_from = query_deadlines.size();
+            else
+            {
+                query_deadlines_search_from = pos;
+
+                //
+                if(query_deadlines.at(pos) == deadline1) //(found at `pos`)
+                {
+                    //set `state_of_query_deadlines[pos]` to `state1`
+                    state_of_query_deadlines[pos] = state1;
+                }
+            }
+
+            //
+            if(state1.get_state() == clDataElem_TaskState::DateShifted)
+            {                                    //(`deadline1` has latest state `DateShifted`)
+                QDate shifted_date = state1.get_shifted_date();
+                if(shifted_date <= max_shfited_date)
+                {
+                    deadlines_w_date_shifted << deadline1;
+                    shifted_dates << shifted_date;
+                }
+            }
+        }
+    }
+
+    //
+    F.close();
+}
+
+void clFileReadWrite::add_task_state_update(const clUtil_Task &task,
+                                            const clDataElem_TaskState &new_state,
+                                            const QDate &update_date)
+{
+    const int id = task.mRemID;
+    const QDate deadline = task.mDeadline;
+
+    // read whole file --> lines[]
+    QList<QByteArray> lines;
+
+    const QString fname = mDataDir + "task_state_history/"
+                          + QString("%1.txt").arg(id,4,10,QChar('0'));
+    QFile F(fname);
+    bool ch = F.open(QIODevice::ReadOnly);
+    if(ch)
+    {
+        {
+            QByteArray bytes = F.readAll();
+            lines = bytes.split('\n');
+        }
+        F.close();
+    }
+
+    // write file
+    ch = F.open(QIODevice::WriteOnly);
+    Q_ASSERT(ch);
+
+    const QString update_date_str = update_date.toString("yyyy/M/d");
+
+    //
+    bool found = false; //`deadline` is found?
+    bool added = false; //new state written?
+    QDate deadline1;
+    for(int i=0; i<lines.size(); i++)
+    {
+        //
+        QString line = QString::fromUtf8(lines.at(i));
+        if(line.isEmpty())
+            continue;
+
+        if(line.startsWith('D'))
+        {
+            if(found)
+            {
+                //insert  (date, state)
+                QString str = update_date.toString("  yyyy/M/d ");
+                str += new_state.print()+'\n';
+                F.write(str.toUtf8());
+
+                //
+                found = false;
+                added = true;
+            }
+
+            // update `deadline1`
+            deadline1 = QDate::fromString(line.mid(1), "yyyy/M/d");
+            if(deadline1 == deadline)
+                found = true;
+            else if(deadline1 > deadline)
+            {
+                if(!added)
+                {
+                    //insert deadline, (date, state)
+                    QString str = 'D'+deadline.toString("yyyy/M/d")+'\n';
+                    str += update_date.toString("  yyyy/M/d ");
+                    str += new_state.print()+'\n';
+                    F.write(str.toUtf8());
+
+                    //
+                    added = true;
+                }
+            }
+
+            //
+            F.write(lines.at(i)+'\n');
+        }
+        else
+        {
+            if(! found)
+                F.write(lines.at(i)+'\n');
+            else
+            {
+                if(! line.simplified().startsWith(update_date_str))
+                    F.write(lines.at(i)+'\n');
+            }
+        }
+    }
+
+    if(!added)
+    {
+        //insert deadline, (date, state)
+        QString str;
+        if(!found)
+            str = 'D'+deadline.toString("yyyy/M/d")+'\n';
+        str += update_date.toString("  yyyy/M/d ");
+        str += new_state.print()+'\n';
+        F.write(str.toUtf8());
+    }
+
+    //
+    Q_ASSERT(F.error() == QFile::NoError);
+    F.close();
+}
+
+void clFileReadWrite::read_task_day_scheduling(
+                                 const QDate &date,
+                                 QMap<clTask, QList<clTaskDayScheduleSession> > &TaskSessions)
+{
+    Q_ASSERT(date.isValid());
+
+    TaskSessions.clear();
+
+    // open file
+    const QString fname = mDataDir + QString("task_day_schedule/%1.txt")
+                                     .arg(date.toString("yyyyMMdd"));
+    QFile F(fname);
+    if(!F.open(QIODevice::ReadOnly))
+        return;
+
+    // read file
+    clTask task;
+    QList<clTaskDayScheduleSession> sessions;
+    while(true)
+    {
+        QString line = QString::fromUtf8( F.readLine().simplified() );
+        if(line.isEmpty()) //should be the last line of file
+        {
+            // (now might be at the end of a task block)
+            if(task.mRemID >= 0 && !sessions.isEmpty())
+                TaskSessions.insert(task, sessions); //add result
+
+            break;
+        }
+
+        //
+        if(line.startsWith('T'))
+        {
+            /// (now is at the end of a task block)
+            if(task.mRemID >= 0 && !sessions.isEmpty())
+            {
+                TaskSessions.insert(task, sessions); //add result
+                sessions.clear();
+            }
+
+            /// start of next task block
+            QStringList tokens = line.split(' ');
+            Q_ASSERT(tokens.size() == 3);
+
+            bool ok;
+            int id = tokens.at(1).toInt(&ok);
+            Q_ASSERT(ok);
+
+            QDate deadline = QDate::fromString(tokens.at(2), "yyyy/M/d");
+            Q_ASSERT(deadline.isValid());
+
+            //
+            task.set(id, deadline);
+        }
+        else if(line.startsWith('S'))
+        {
+            clTaskDayScheduleSession session;
+            bool ch = session.parse_and_set(line.mid(2));
+            Q_ASSERT(ch);
+
+            //
+            sessions << session;
+        }
+    }
+
+    //
+    F.close();
+}
+
+void clFileReadWrite::save_task_day_scheduling(
+                           const QDate &date,
+                           const QMap<clTask, QList<clTaskDayScheduleSession> > &TaskSessions)
+{
+    Q_ASSERT(date.isValid());
+
+    // open file
+    const QString fname = mDataDir + QString("task_day_schedule/%1.txt")
+                                     .arg(date.toString("yyyyMMdd"));
+    QFile F(fname);
+    bool ch = F.open(QIODevice::WriteOnly);
+    Q_ASSERT(ch);
+
+    // write to file
+    bool empty = true;
+    for(auto it=TaskSessions.cbegin(); it!=TaskSessions.cend(); it++)
+    {
+        const clTask &task = it.key();
+        const QList<clTaskDayScheduleSession> &sessions = it.value();
+
+        if(sessions.isEmpty())
+            continue;
+        empty = false;
+
+        //
+        QString line = QString("T %1 %2\n").arg(task.mRemID)
+                                           .arg(task.mDeadline.toString("yyyy/M/d"));
+        F.write(line.toUtf8());
+
+        //
+        for(int i=0; i<sessions.size(); i++)
+        {
+            line = QString("S   %1\n").arg(sessions.at(i).print());
+            F.write(line.toUtf8());
+        }
+    }
+
+    //
+    Q_ASSERT(F.error() == QFile::NoError);
+    F.close();
+
+    //
+    if(empty)
+        F.remove();
 }

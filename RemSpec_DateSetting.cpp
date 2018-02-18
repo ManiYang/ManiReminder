@@ -198,3 +198,29 @@ bool clRemSpec_DateSetting::includes(const QDate &date, int *Ndays_to_due) const
 
     return is_precaution_date(date, Ndays_to_due);
 }
+
+QList<QDate> clRemSpec_DateSetting::get_due_dates_within(const QDate &d0,
+                                                         const QDate &d1) const
+{
+    Q_ASSERT(d0.isValid() && d1.isValid());
+    Q_ASSERT(d1 >= d0);
+
+    if(is_empty())
+        return QList<QDate>();
+
+    QList<QDate> due_dates;
+    for(QDate d=d0; d<=d1; d=d.addDays(1))
+    {
+        if(is_due_date(d))
+            due_dates << d;
+    }
+
+    return due_dates;
+}
+
+int clRemSpec_DateSetting::get_precaution_day_counts() const
+//`*this` cannot be empty
+{
+    Q_ASSERT(! is_empty());
+    return mPrecautionDayCount;
+}

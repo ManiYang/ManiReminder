@@ -182,3 +182,21 @@ QString clRemSpec_TimeTrigger::get_action_name(const int action_code) const
     Q_UNUSED(action_code);
     return "trigger";
 }
+
+QList<QTime> clRemSpec_TimeTrigger::get_times_on_date(const QDate &date) const
+//returned list will be in ascending order
+{
+    QMap<QTime,bool> times; //the values are irrelevant
+    for(int i=0; i<mTimeCollections.size(); i++)
+    {
+        clDataElem_TimeCollection TC = mTimeCollections.at(i);
+        if(TC.includes_date(date))
+        {
+            QList<QTime> times1 = TC.get_times();
+            for(int j=0; j<times1.size(); j++)
+                times[times1.at(j)] = false;
+        }
+    }
+
+    return times.keys();
+}

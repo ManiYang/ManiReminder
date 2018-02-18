@@ -124,14 +124,24 @@ void clUtil_HrMinRange::merge_with_overlapping_or_adjacent(const clUtil_HrMinRan
 //}
 
 QString clUtil_HrMinRange::print(const int option) const
-//option -- 1: "[hr0:min0,hr1:min1)"
-//          2: "hr0:min0-hr1:min1"
+//option -- 1: "[h:mm,h:mm)"
+//          2: "h:mm-h:mm"
+//          3: "hh:mm-hh:mm"
 {
     Q_ASSERT(! is_empty());
-    Q_ASSERT(option==1 || option==2);
+    Q_ASSERT(option==1 || option==2 || option==3);
 
-    const QString start = QString("%1:%2").arg(mHr0).arg(mMin0,2,10,QChar('0'));
-    const QString end = QString("%1:%2").arg(mHr1).arg(mMin1,2,10,QChar('0'));
+    QString start, end;
+    if(option == 3)
+    {
+        start = QString("%1:%2").arg(mHr0,2,10,QChar('0')).arg(mMin0,2,10,QChar('0'));
+        end   = QString("%1:%2").arg(mHr1,2,10,QChar('0')).arg(mMin1,2,10,QChar('0'));
+    }
+    else
+    {
+        start = QString("%1:%2").arg(mHr0).arg(mMin0,2,10,QChar('0'));
+        end   = QString("%1:%2").arg(mHr1).arg(mMin1,2,10,QChar('0'));
+    }
 
     if(option == 1)
         return QString("[%1,%2)").arg(start, end);
@@ -299,5 +309,25 @@ int clUtil_HrMinRange::get_end_minute_number() const
 {
     Q_ASSERT(mHr0 != -1);
     return mHr1*60 + mMin1;
+}
 
+////////////////////////////
+
+void hrmin_range_from_time_range(const clUtil_TimeRange &time_range,
+                                 clUtil_HrMinRange *hrmin_range, QDate *base_date)
+//Find `*hrmin_range`, `*base_date` such that `*hrmin_range` on `*base_date` is equivalent
+//to `time_range`. Accurate only to minutes.
+{
+    const QDateTime t0 = time_range.left(),
+                    t1 = time_range.right();
+
+    *base_date = t0.date();
+    int hr0 = t0.time().hour();
+    int min0 = t0.time().minute();
+
+    int d = base_date->daysTo(t1.date());
+    int hr1 = t1.time().hour() + d*24;
+    int min1 = t1.time().minute();
+
+    *hrmin_range = clUtil_HrMinRange(hr0, min0, hr1, min1);
 }

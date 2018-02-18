@@ -36,6 +36,9 @@ public:
     // interface for settings only
     bool is_empty() const { return mTimeCollections.isEmpty(); }
 
+    QList<QTime> get_times_on_date(const QDate &date) const;
+                 //returned list will be in ascending order
+
     QString print() const; //print settings
     void add_to_XML(QDomDocument &doc, QDomElement &parent) const; //add settings
 

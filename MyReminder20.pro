@@ -79,7 +79,14 @@ SOURCES += \
     UI_Dialog_SpecElementInsert.cpp \
     UI_Dialog_CalendarDatePicker.cpp \
     UI_Board_ButtonSetsView.cpp \
-    DataElem_DayStatus.cpp
+    TaskStatesManager.cpp \
+    Util_Task.cpp \
+    DataElem_TaskState.cpp \
+    DataElem_TaskDayScheduleSession.cpp \
+    UI_DayPlan_Dialog_Schedule_Edit.cpp \
+    UI_DayPlan_ScheduleTable.cpp \
+    UI_DayPlan_UpdateRecordTable.cpp \
+    UI_DayPlan_TaskTable.cpp
 
 HEADERS += \
         UI_MainWindow.h \
@@ -133,7 +140,15 @@ HEADERS += \
     UI_Dialog_SpecElementInsert.h \
     UI_Dialog_CalendarDatePicker.h \
     UI_Board_ButtonSetsView.h \
-    DataElem_DayStatus.h
+    FileReadWrite.h \
+    TaskStatesManager.h \
+    Util_Task.h \
+    DataElem_TaskState.h \
+    DataElem_TaskDayScheduleSession.h \
+    UI_DayPlan_Dialog_Schedule_Edit.h \
+    UI_DayPlan_ScheduleTable.h \
+    UI_DayPlan_UpdateRecordTable.h \
+    UI_DayPlan_TaskTable.h
 
 FORMS += \
         UI_MainWindow.ui \
@@ -149,7 +164,8 @@ FORMS += \
     UI_MyCalendar.ui \
     UI_Dialog_SpecInputHelper.ui \
     UI_Dialog_SpecElementInsert.ui \
-    UI_Dialog_CalendarDatePicker.ui
+    UI_Dialog_CalendarDatePicker.ui \
+    UI_DayPlan_Dialog_Schedule_Edit.ui
 
 RESOURCES += \
     resources.qrc

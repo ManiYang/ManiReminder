@@ -50,7 +50,17 @@ public:
     bool is_active_via_bindings() const { return mSpec.is_active_via_bindings(); }
          //whether the reminder is active via bindings and passes the filters
 
+    QList<QTime> get_triggering_times_on_date(const QDate &date) const;
+                                              //returned list will be in ascending order
+    QList<clUtil_HrMinRange> get_binding_hrmin_ranges_on_date(const QDate &base_date) const;
+                             //Get the time binding ranges starting on date `base_date`.
+                             //Returned list will be separated and in ascending order.
+
+    bool has_date_setting() const { return mSpec.has_date_setting(); }
+    bool is_due_date(const QDate &date) const;
     bool date_setting_includes(const QDate &date, int *Ndays_to_due) const;
+    QList<QDate> get_due_dates_within(const QDate &d0, const QDate &d1) const;
+    int get_precaution_day_counts() const; //*this must have nonempty date-setting
 
     //
     enum enModify {Title=1, Tags=2, Detail=4, Alarm=8,

@@ -7,11 +7,14 @@
 clControl::clControl(QObject *parent)
     : QObject(parent)
 {
-    uMainWindow = new clUI_MainWindow(&mReminders_ReadOnly, &mSituations, &mEvents);
+    uTaskStatesManager = new clTaskStatesManager(&mReminders_ReadOnly, &uFileReadWrite, this);
+
+    //
+    uMainWindow = new clUI_MainWindow(&mReminders_ReadOnly, &mSituations, &mEvents,
+                                      uTaskStatesManager);
 
     connect(uMainWindow,   SIGNAL(gevent_happened(clDataElem_GEvent,QDateTime)),
             this, SLOT(MainWindow_gevent_happened(clDataElem_GEvent,QDateTime)));
-
     connect(uMainWindow,   SIGNAL(to_modify_reminder(int,int,const clReminder*)),
             this, SLOT(MainWindow_to_modify_reminder(int,int,const clReminder*)));
     connect(uMainWindow,   SIGNAL(to_modify_reminder_spec(int,const clReminderSpec*)),
@@ -20,17 +23,25 @@ clControl::clControl(QObject *parent)
             this, SLOT(MainWindow_to_add_reminder_record(int,QDateTime,QString)));
     connect(uMainWindow,   SIGNAL(to_create_new_reminder(QString)),
             this, SLOT(MainWindow_to_create_new_reminder(QString)));
+    connect(uMainWindow,   SIGNAL(to_update_task_state(clUtil_Task,clDataElem_TaskState)),
+            this, SLOT(MainWindow_to_update_task_state(clUtil_Task,clDataElem_TaskState)));
+    connect(uMainWindow,   SIGNAL(get_scheduled_sessions(QDate,QMap<clTask,QList<clTaskDayScheduleSession> >*)),
+            this, SLOT(MainWindow_get_scheduled_sessions(QDate,QMap<clTask,QList<clTaskDayScheduleSession> >*)));
+    connect(uMainWindow,   SIGNAL(scheduled_sessions_updated(QDate,const QMap<clTask,QList<clTaskDayScheduleSession> >*)),
+            this, SLOT(MainWindow_scheduled_sessions_updated(QDate,const QMap<clTask,QList<clTaskDayScheduleSession> >*)));
 
-    connect(uMainWindow,   SIGNAL(to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)),
-            this, SLOT(MainWindow_to_get_day_planning_status(QDate,QMap<int,clDataElem_RemDayStatus>*)));
-    connect(uMainWindow,   SIGNAL(day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)),
-            this, SLOT(MainWindow_day_planning_status_modified(QDate,QMap<int,clDataElem_RemDayStatus>)));
+    //
+    connect(uTaskStatesManager, SIGNAL(to_show_status_bar_message(QString)),
+            this, SLOT(show_status_bar_message(QString)));
 
     //
     uAlarmClockService = new clAlarmClockService(this);
     connect(uAlarmClockService, SIGNAL(time_reached(QDateTime,int)),
             this, SLOT(AlarmClockService_time_reached(QDateTime,int)));
 
+    //
+    connect(&mMessageClock, SIGNAL(notify(QDateTime,QString)),
+            this, SLOT(On_message_clock_notify(QDateTime,QString)));
 
 }
 
@@ -78,6 +89,9 @@ void clControl::start_up()
                         QSet<QString>()); //start with no situation selected
     }
 
+    // tell `uTaskStatesManager` to start up
+    uTaskStatesManager->start_up();
+
     // tell `uMainWindow` to start up
     uMainWindow->start_up();
 
@@ -91,6 +105,10 @@ void clControl::start_up()
     //
     uMainWindow->statusBar()->showMessage(QString("%1 reminders read.").arg(mReminders.size()),
                                           5000);
+
+    // start `mMessageClock`
+    const QDateTime next_mid_night(QDate::currentDate(), QTime(23, 59, 59, 999));
+    mMessageClock.schedule(next_mid_night, "crossing day");
 }
 
 void clControl::AlarmClockService_time_reached(const QDateTime &t, int rem_id)
@@ -137,6 +155,9 @@ void clControl::MainWindow_to_modify_reminder_spec(int id, const clReminderSpec 
     mEvents += new_spec->get_events_involved();
 
     uMainWindow->situation_event_list_updated();
+
+    uFileReadWrite.save_events(mEvents);
+    uFileReadWrite.save_situations(mSituations);
 
     // get g-event history from file
     QDateTime t0 = QDateTime::currentDateTime();
@@ -211,17 +232,10 @@ void clControl::MainWindow_to_create_new_reminder(const QString &title)
     uMainWindow->reminder_created(id);
 }
 
-void clControl::MainWindow_to_get_day_planning_status(const QDate &date,
-                                                   QMap<int,clDataElem_RemDayStatus> *status)
+void clControl::MainWindow_to_update_task_state(const clUtil_Task &task,
+                                                const clDataElem_TaskState &new_state)
 {
-    *status = uFileReadWrite.read_day_planning_status(date);
-}
-
-void clControl::MainWindow_day_planning_status_modified(const QDate &date,
-                                              const QMap<int,clDataElem_RemDayStatus> &status)
-{
-    uFileReadWrite.save_day_planning_status(date, status);
-    uMainWindow->statusBar()->showMessage("File written.", 5000);
+    uTaskStatesManager->task_state_changed(task, new_state);
 }
 
 static bool induces(const QString &sit1, const QString &sit2)
@@ -321,4 +335,39 @@ void clControl::MainWindow_gevent_happened(const clDataElem_GEvent &gevent, cons
         for(int i=0; i<gevents_to_trigger.size(); i++)
             it.value()->On_gevent(gevents_to_trigger.at(i));
     }
+}
+
+void clControl::On_message_clock_notify(QDateTime t, QString message)
+{
+    const QDateTime next_mid_night(t.date(), QTime(23, 59, 59, 999));
+    mMessageClock.schedule(next_mid_night, "crossing day");
+
+    if(message == "crossing day")
+        On_crossing_day();
+}
+
+void clControl::On_crossing_day()
+{
+    uTaskStatesManager->current_date_changed();
+    uMainWindow->current_date_changed();
+}
+
+void clControl::show_status_bar_message(const QString &msg)
+{
+    uMainWindow->statusBar()->showMessage(msg, 5000);
+}
+
+void clControl::MainWindow_get_scheduled_sessions(
+                                 const QDate &date,
+                                 QMap<clTask, QList<clTaskDayScheduleSession> > *TaskSessions)
+{
+    uFileReadWrite.read_task_day_scheduling(date, *TaskSessions);
+}
+
+void clControl::MainWindow_scheduled_sessions_updated(
+                           const QDate& date,
+                           const QMap<clTask, QList<clTaskDayScheduleSession> > *TaskSessions)
+{
+    show_status_bar_message("Write to file.");
+    uFileReadWrite.save_task_day_scheduling(date, *TaskSessions);
 }

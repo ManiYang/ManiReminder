@@ -34,6 +34,9 @@ public:
     int get_end_hr() const;  //note: the range is [start, end)
     int get_end_min() const; //note: the range is [start, end)
 
+    int get_start_minute_number() const; //mHr0 * 60 + mMin0
+    int get_end_minute_number() const;
+
     QString print(const int option = 1) const; //option -- 1: "[hr0:min0,hr1:min1)"
                                                //          2: "hr0:min0-hr1:min1"
 
@@ -71,12 +74,14 @@ private:
     bool is_later_or_equal_than_start_time(const int hr, const int min,
                                            const int sec, const int minisec) const;
     bool is_earlier_than_end_time(const int hr, const int min,
-                                  const int sec, const int minisec) const;
-
-    int get_start_minute_number() const;
-    int get_end_minute_number() const;
+                                  const int sec, const int minisec) const;    
 };
 
+//////////////////////////
 
+void hrmin_range_from_time_range(const clUtil_TimeRange &time_range,
+                                 clUtil_HrMinRange *hrmin_range, QDate *base_date);
+//Find `*hrmin_range`, `*base_date` such that `*hrmin_range` on `*base_date` is equivalent
+//to `time_range`. Accurate only to minutes.
 
 #endif // CLUTIL_HRMIN_RANGE_H

@@ -26,6 +26,9 @@ public:
                   //Return true if `date` is a due date or a precaution date.
                   //`*Ndays_to_due` will be 0 if `date` is a due date.
 
+    QList<QDate> get_due_dates_within(const QDate &d0, const QDate &d1) const;
+    int get_precaution_day_counts() const; //`*this` cannot be empty
+
     //
     bool is_empty() const { return mDatePatterns.isEmpty(); }
 
@@ -36,7 +39,7 @@ public:
     void operator = (const clRemSpec_DateSetting &another);
 
 private:
-    QList<clDatePattern> mDatePatterns; //contains the deadline dates
+    QList<clDatePattern> mDatePatterns; //contains the deadline/due dates
     int mPrecautionDayCount; //must be >= 0 (meaningless if `mDatePatterns[]` is empty)
 };
 

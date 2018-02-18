@@ -245,3 +245,75 @@ bool clRemSpec_TimeRangeBinding::operator ==(const clRemSpec_TimeRangeBinding &a
 {
     return mTimeRangeCollections == another.mTimeRangeCollections;
 }
+
+QList<clUtil_HrMinRange> clRemSpec_TimeRangeBinding::get_time_ranges_on_date(
+                                                                      const QDate &date) const
+//Get time ranges starting on date `date`.
+//Returned list will be separated and in ascending order.
+{
+    if(is_empty())
+        return QList<clUtil_HrMinRange>();
+
+    //
+    QList<clUtil_HrMinRange> hrmin_ranges;
+    for(int i=0; i<mTimeRangeCollections.size(); i++)
+    {
+        clDataElem_TimeRangeCollection TRC = mTimeRangeCollections.at(i);
+        if(TRC.includes_date(date))
+            hrmin_ranges << TRC.get_hrmin_ranges();
+    }
+
+    // simplify
+    QList<clUtil_TimeRange> t_ranges;
+    QDateTime latest_t = QDateTime(date, QTime(0,0));
+    for(int i=0; i<hrmin_ranges.size(); i++)
+    {
+        clUtil_TimeRange t_range = hrmin_ranges.at(i).get_DateTime_range(date);
+        t_ranges << t_range;
+
+        if(t_range.right() > latest_t)
+            latest_t = t_range.right();
+    }
+
+    bool state_at_beginning;
+    QMap<QDateTime,bool> state_shifts;
+    find_state_shifts_of_time_range_collection(t_ranges, 'u',
+                                               QDateTime(date, QTime(0,0)), latest_t,
+                                               &state_at_beginning, &state_shifts);
+
+    //
+    t_ranges.clear();
+
+    QDateTime left;
+    if(state_at_beginning)
+        left = QDateTime(date, QTime(0,0));
+    for(auto it=state_shifts.begin(); it!=state_shifts.end(); it++)
+    {
+        if(it.value())
+        {
+           Q_ASSERT(left.isNull());
+           left = it.key();
+        }
+        else
+        {
+            Q_ASSERT(left.isValid());
+            t_ranges << clUtil_TimeRange(left, it.key());
+            left = QDateTime();
+        }
+    }
+    Q_ASSERT(left.isNull());
+
+    //
+    hrmin_ranges.clear();
+
+    clUtil_HrMinRange hrmin_range;
+    QDate base_date;
+    foreach(clUtil_TimeRange t_range, t_ranges)
+    {
+        hrmin_range_from_time_range(t_range, &hrmin_range, &base_date);
+        Q_ASSERT(base_date == date);
+        hrmin_ranges << hrmin_range;
+    }
+
+    return hrmin_ranges;
+}

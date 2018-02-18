@@ -43,6 +43,10 @@ public:
     // interface for settings only
     bool is_empty() const { return mTimeRangeCollections.isEmpty(); }
 
+    QList<clUtil_HrMinRange> get_time_ranges_on_date(const QDate &date) const;
+                             //Get time ranges starting on date `date`.
+                             //Returned list will be separated and in ascending order.
+
     QString print() const; //print the settings
     void add_to_XML(QDomDocument &doc, QDomElement &parent) const; //add the settings
 

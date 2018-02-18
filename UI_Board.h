@@ -39,6 +39,8 @@ public slots:
     void reminder_updated(int id);
     void situation_event_list_updated();
 
+    void current_date_changed();
+
 signals:
     void gevent_happened(const clDataElem_GEvent &gevent, const QDateTime &at);
     void to_modify_reminder(int id, int modifyFlags, const clReminder *new_data);

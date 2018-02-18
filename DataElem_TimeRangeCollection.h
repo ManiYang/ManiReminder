@@ -23,6 +23,7 @@ public:
     bool is_empty() const { return mDatePattern.is_empty(); }
 
     bool includes(const QDateTime &t) const;
+    bool includes_date(const QDate &date) const; //include a time range in `date`?
 
     void state_shifts_within_time_range(const QDateTime &t0, const QDateTime &t1,
                                         const char option,
@@ -37,6 +38,8 @@ public:
          //(`t0`, `t1`].
          //`(*state_shifts)[t] == true` means there's a state shift OFF->ON at `t`.
          //`(*state_shifts)[t] == false` means there's a state shift ON->OFF at `t`.
+
+    QList<clUtil_HrMinRange> get_hrmin_ranges() const { return mHrMinRanges; }
 
     bool operator == (const clDataElem_TimeRangeCollection &another) const;
                      //Empty collections are considered equal.
@@ -55,8 +58,6 @@ private:
     //
     int HrMinRanges_cross_days() const;
     bool is_in_HrMinRanges(const int hr, const int min, const int sec, const int msec) const;
-
-
 };
 
 #endif // CLDATAELEMENT_TIMERANGECOLLECTION_H

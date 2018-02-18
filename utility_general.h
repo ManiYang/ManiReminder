@@ -1,6 +1,7 @@
 #ifndef UTILITY_GENERAL_H
 #define UTILITY_GENERAL_H
 
+#include <algorithm>
 #include <QList>
 #include <QSet>
 #include <QStringList>
@@ -21,5 +22,16 @@ void reverse_list(QList<T> *list)
 
 void reverse_list(QStringList *list);
 
+//
+template <class T>
+void remove_elements_from_list(QList<T> &list, const QSet<int> &indices)
+//remove `list[indices[]]`
+{
+    QList<int> ind = indices.toList();
+    std::sort(ind.begin(), ind.end());
+    reverse_list(&ind); //(now `ind[]` is in descending order)
+    for(int i=0; i<ind.size(); i++)
+        list.removeAt(ind.at(i));
+}
 
 #endif // UTILITY_GENERAL_H

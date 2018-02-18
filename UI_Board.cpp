@@ -229,6 +229,11 @@ void clUI_Board::situation_event_list_updated()
     }
 }
 
+void clUI_Board::current_date_changed()
+{
+//.........
+}
+
 /*
 const clReminder *clUI_Board::get_current_selected_reminder() const
 {

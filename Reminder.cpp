@@ -296,9 +296,28 @@ QMultiMap<QDateTime,QString> clReminder::get_scheduled_actions() const
     return mSpec.get_scheduled_actions();
 }
 
+bool clReminder::is_due_date(const QDate &date) const
+{
+    return mSpec.is_due_date(date);
+}
+
 bool clReminder::date_setting_includes(const QDate &date, int *Ndays_to_due) const
 {
     return mSpec.date_setting_includes(date, Ndays_to_due);
+}
+
+QList<QDate> clReminder::get_due_dates_within(const QDate &d0, const QDate &d1) const
+{
+    Q_ASSERT(d0.isValid() && d1.isValid());
+    Q_ASSERT(d1 >= d0);
+    return mSpec.get_due_dates_within(d0, d1);
+}
+
+int clReminder::get_precaution_day_counts() const
+//*this must have nonempty date-setting
+{
+    Q_ASSERT(mSpec.has_date_setting());
+    return mSpec.get_precaution_day_counts();
 }
 
 void clReminder::set_title(const QString &title)
@@ -374,4 +393,18 @@ void clReminder::update_data(int modifyFlags, const clReminder *new_data)
 
     if(modifyFlags & QuickNote)
         mQuickNote = new_data->mQuickNote;
+}
+
+QList<QTime> clReminder::get_triggering_times_on_date(const QDate &date) const
+//returned list will be in ascending order
+{
+    return mSpec.get_triggering_times_on_date(date);
+}
+
+QList<clUtil_HrMinRange> clReminder::get_binding_hrmin_ranges_on_date(
+                                                                const QDate &base_date) const
+//Get the time binding ranges starting on date `base_date`.
+//Returned list will be separated and in ascending order.
+{
+    return mSpec.get_binding_hrmin_ranges_on_date(base_date);
 }
